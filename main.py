@@ -96,10 +96,5 @@ def unit_test():
     test.load_data(features=features, labels=labels)
 
 
-
-
-
-
-
 if __name__ == '__main__':
     unit_test()
