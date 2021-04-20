@@ -4,6 +4,7 @@ testing data.
 """
 from enum import Enum
 import numpy as np
+import random
 
 
 class DataMismatchError(Exception):
@@ -64,6 +65,18 @@ class NNData:
                 self._labels = None
 
         self._train_factor = self.percentage_limiter(train_factor)
+
+        self._train_indices = []
+        self._test_indices = []
+
+        self._train_pool = []
+        self._test_pool = []
+
+    def split_set(self, new_train_factor=None):
+        if new_train_factor is not None:
+            self._train_factor = self.percentage_limiter(new_train_factor)
+            number_of_examples = len(self._features)
+
 
     @staticmethod
     def percentage_limiter(percentage: float):
