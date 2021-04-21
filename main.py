@@ -2,8 +2,11 @@
 Build a NNData class that will help us better manage our training and
 testing data.
 """
+from collections import deque
 from enum import Enum
 import numpy as np
+import random
+from math import floor
 
 
 class DataMismatchError(Exception):
@@ -63,7 +66,56 @@ class NNData:
                 self._features = None
                 self._labels = None
 
+        # Set Training Factor
         self._train_factor = self.percentage_limiter(train_factor)
+
+        # Set Train and Test indices
+        self._train_indices = []
+        self._test_indices = []
+
+        self._train_pool = deque()
+        self._test_pool = deque()
+        self.split_set()
+
+    def split_set(self, new_train_factor=None):
+        """
+        Splits features and labels based on training factor. training
+        factor when creating the instance is the default, otherwise it
+        is replaced by the new one given.
+        :param new_train_factor:
+        :return:
+        """
+        if self._features is None:
+            self._train_indices = []
+            self._test_indices = []
+            return
+
+        if new_train_factor is not None:
+            self._train_factor = self.percentage_limiter(new_train_factor)
+
+        size = len(self._features)
+        available_indices = [i for i in range(0, size)]
+        number_of_training_examples = floor(size * self._train_factor)
+        indirect_train = []
+        while len(indirect_train) < number_of_training_examples:
+            r = random.randint(available_indices[0], available_indices[-1])
+            if r in indirect_train:
+                continue
+            else:
+                indirect_train.append(r)
+
+        indirect_test = []
+        for i in available_indices:
+            if i in indirect_train:
+                pass
+            else:
+                indirect_test.append(i)
+
+        indirect_train.sort()
+        indirect_test.sort()
+
+        self._train_indices = indirect_train
+        self._test_indices = indirect_test
 
     @staticmethod
     def percentage_limiter(percentage: float):
@@ -127,7 +179,7 @@ def load_xor():
                              train_factor=1)
 
 
-def unit_test():
+def unit_test_assignment1():
     """
     Test constructor and methods from NNData class to make sure that they are
     up to spec.
@@ -195,15 +247,52 @@ def unit_test():
               " than 1 passed")
 
 
+def unit_test():
+    errors = False
+    try:
+        # Create a valid small and large dataset to be used later
+        x = list(range(10))
+        y = x
+        our_data_0 = NNData(x, y)
+        print(our_data_0._features)
+        x = list(range(100))
+        y = x
+        our_big_data = NNData(x, y, .5)
+
+    except:
+        print("There are errors that likely come from __init__ or a "
+              "method called by __init__")
+        errors = True
+
+    # Test split_set to make sure the correct number of samples are in
+    # each set, and that the indices do not overlap.
+    try:
+        our_data_0.split_set(.3)
+        assert len(our_data_0._train_indices) == 3
+        assert len(our_data_0._test_indices) == 7
+        assert (list(set(our_data_0._train_indices +
+                         our_data_0._test_indices))) == list(range(10))
+    except:
+        print("There are errors that likely come from split_set")
+        errors = True  # Summary
+    if errors:
+        print("You have one or more errors.  Please fix them before "
+              "submitting")
+    else:
+        print("No errors were identified by the unit test.")
+        print("You should still double check that your code meets spec.")
+        print("You should also check that PyCharm does not identify any "
+              "PEP-8 issues.")
+
+
 if __name__ == '__main__':
     unit_test()
 
 """
-========= Sample Run ==========
-SUCCESS: NNData.load_data() raises DataMismatchError when features and labels have different lengths.
-SUCCESS: NNData.load_data() raises ValueError when either features or labels include non-float values.
-SUCCESS: invalid feature data passed to the constructor sets features and labels to None
-SUCCESS: invalid label data passed to the constructor sets features and labels to None
-SUCCESS: training factor limited to zero when negative value passed
-SUCCESS: training factor limited to one when a value greater  than 1 was passed
+========== Sample Run ==========
+
+[0. 1. 2. 3. 4. 5. 6. 7. 8. 9.]
+No errors were identified by the unit test.
+You should still double check that your code meets spec.
+You should also check that PyCharm does not identify any PEP-8 issues.
 """
