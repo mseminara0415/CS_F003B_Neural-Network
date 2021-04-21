@@ -66,8 +66,10 @@ class NNData:
                 self._features = None
                 self._labels = None
 
+        # Set Training Factor
         self._train_factor = self.percentage_limiter(train_factor)
 
+        # Set Train and Test indices
         self._train_indices = []
         self._test_indices = []
 
@@ -76,6 +78,13 @@ class NNData:
         self.split_set()
 
     def split_set(self, new_train_factor=None):
+        """
+        Splits features and labels based on training factor. training
+        factor when creating the instance is the default, otherwise it
+        is replaced by the new one given.
+        :param new_train_factor:
+        :return:
+        """
         if self._features is None:
             self._train_indices = []
             self._test_indices = []
@@ -87,21 +96,26 @@ class NNData:
         size = len(self._features)
         available_indices = [i for i in range(0, size)]
         number_of_training_examples = floor(size * self._train_factor)
-        while len(self._train_indices) < number_of_training_examples:
+        indirect_train = []
+        while len(indirect_train) < number_of_training_examples:
             r = random.randint(available_indices[0], available_indices[-1])
-            if r in self._train_indices:
+            if r in indirect_train:
                 continue
             else:
-                self._train_indices.append(r)
+                indirect_train.append(r)
 
+        indirect_test = []
         for i in available_indices:
-            if i in self._train_indices:
+            if i in indirect_train:
                 pass
             else:
-                self._test_indices.append(i)
+                indirect_test.append(i)
 
-        self._train_indices.sort()
-        self._test_indices.sort()
+        indirect_train.sort()
+        indirect_test.sort()
+
+        self._train_indices = indirect_train
+        self._test_indices = indirect_test
 
     @staticmethod
     def percentage_limiter(percentage: float):
@@ -165,7 +179,7 @@ def load_xor():
                              train_factor=1)
 
 
-def unit_test():
+def unit_test_assignment1():
     """
     Test constructor and methods from NNData class to make sure that they are
     up to spec.
@@ -233,18 +247,7 @@ def unit_test():
               " than 1 passed")
 
 
-def test():
-    features = [[0, 0], [1, 0], [0, 1], [1, 1]]
-    labels = [[0], [1], [1], [0]]
-    x = list(range(10))
-    print(features)
-    y = x
-    test_xor_object = NNData(features=x,
-                             labels=y,
-                             train_factor=.5)
-    print(test_xor_object._features)
-
-def unit_test1():
+def unit_test():
     errors = False
     try:
         # Create a valid small and large dataset to be used later
@@ -255,7 +258,6 @@ def unit_test1():
         x = list(range(100))
         y = x
         our_big_data = NNData(x, y, .5)
-
 
     except:
         print("There are errors that likely come from __init__ or a "
@@ -284,5 +286,13 @@ def unit_test1():
 
 
 if __name__ == '__main__':
-    test()
+    unit_test()
 
+"""
+========== Sample Run ==========
+
+[0. 1. 2. 3. 4. 5. 6. 7. 8. 9.]
+No errors were identified by the unit test.
+You should still double check that your code meets spec.
+You should also check that PyCharm does not identify any PEP-8 issues.
+"""
