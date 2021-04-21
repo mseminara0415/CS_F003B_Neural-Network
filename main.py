@@ -77,7 +77,7 @@ class NNData:
         self._test_pool = deque()
         self.split_set()
 
-    def split_set(self, new_train_factor=None):
+    def split_set(self, new_train_factor: float = None):
         """
         Splits features and labels based on training factor. training
         factor when creating the instance is the default, otherwise it
