@@ -2,9 +2,11 @@
 Build a NNData class that will help us better manage our training and
 testing data.
 """
+from collections import deque
 from enum import Enum
 import numpy as np
 import random
+from math import floor
 
 
 class DataMismatchError(Exception):
@@ -69,14 +71,37 @@ class NNData:
         self._train_indices = []
         self._test_indices = []
 
-        self._train_pool = []
-        self._test_pool = []
+        self._train_pool = deque()
+        self._test_pool = deque()
+        self.split_set()
 
     def split_set(self, new_train_factor=None):
+        if self._features is None:
+            self._train_indices = []
+            self._test_indices = []
+            return
+
         if new_train_factor is not None:
             self._train_factor = self.percentage_limiter(new_train_factor)
-            number_of_examples = len(self._features)
 
+        size = len(self._features)
+        available_indices = [i for i in range(0, size)]
+        number_of_training_examples = floor(size * self._train_factor)
+        while len(self._train_indices) < number_of_training_examples:
+            r = random.randint(available_indices[0], available_indices[-1])
+            if r in self._train_indices:
+                continue
+            else:
+                self._train_indices.append(r)
+
+        for i in available_indices:
+            if i in self._train_indices:
+                pass
+            else:
+                self._test_indices.append(i)
+
+        self._train_indices.sort()
+        self._test_indices.sort()
 
     @staticmethod
     def percentage_limiter(percentage: float):
@@ -208,15 +233,56 @@ def unit_test():
               " than 1 passed")
 
 
-if __name__ == '__main__':
-    unit_test()
+def test():
+    features = [[0, 0], [1, 0], [0, 1], [1, 1]]
+    labels = [[0], [1], [1], [0]]
+    x = list(range(10))
+    print(features)
+    y = x
+    test_xor_object = NNData(features=x,
+                             labels=y,
+                             train_factor=.5)
+    print(test_xor_object._features)
 
-"""
-========= Sample Run ==========
-SUCCESS: NNData.load_data() raises DataMismatchError when features and labels have different lengths.
-SUCCESS: NNData.load_data() raises ValueError when either features or labels include non-float values.
-SUCCESS: invalid feature data passed to the constructor sets features and labels to None
-SUCCESS: invalid label data passed to the constructor sets features and labels to None
-SUCCESS: training factor limited to zero when negative value passed
-SUCCESS: training factor limited to one when a value greater  than 1 was passed
-"""
+def unit_test1():
+    errors = False
+    try:
+        # Create a valid small and large dataset to be used later
+        x = list(range(10))
+        y = x
+        our_data_0 = NNData(x, y)
+        print(our_data_0._features)
+        x = list(range(100))
+        y = x
+        our_big_data = NNData(x, y, .5)
+
+
+    except:
+        print("There are errors that likely come from __init__ or a "
+              "method called by __init__")
+        errors = True
+
+    # Test split_set to make sure the correct number of samples are in
+    # each set, and that the indices do not overlap.
+    try:
+        our_data_0.split_set(.3)
+        assert len(our_data_0._train_indices) == 3
+        assert len(our_data_0._test_indices) == 7
+        assert (list(set(our_data_0._train_indices +
+                         our_data_0._test_indices))) == list(range(10))
+    except:
+        print("There are errors that likely come from split_set")
+        errors = True  # Summary
+    if errors:
+        print("You have one or more errors.  Please fix them before "
+              "submitting")
+    else:
+        print("No errors were identified by the unit test.")
+        print("You should still double check that your code meets spec.")
+        print("You should also check that PyCharm does not identify any "
+              "PEP-8 issues.")
+
+
+if __name__ == '__main__':
+    test()
+
