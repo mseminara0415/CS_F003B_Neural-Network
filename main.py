@@ -261,6 +261,48 @@ class NNData:
                 raise ValueError
 
 
+class LayerType(Enum):
+    INPUT = 0
+    HIDDEN = 1
+    OUTPUT = 2
+
+
+class MultiLinkNode:
+    class Side(Enum):
+        UPSTREAM = 0
+        DOWNSTREAM = 1
+
+    def __init__(self):
+        self._reporting_nodes = {MultiLinkNode.Side.UPSTREAM: 0,
+                                 MultiLinkNode.Side.DOWNSTREAM: 0}
+        self._reference_value = {MultiLinkNode.Side.UPSTREAM: 0,
+                                 MultiLinkNode.Side.DOWNSTREAM: 0}
+
+        self._neighbors = {MultiLinkNode.Side.UPSTREAM: [],
+                           MultiLinkNode.Side.DOWNSTREAM: []}
+
+    def __str__(self):
+        pass
+
+    def _process_new_neighbor(self, node, side: Enum):
+        pass
+
+    def reset_neighbors(self, nodes: list, side: Enum):
+        pass
+
+
+class Neurode(MultiLinkNode):
+    def __init__(self, node_type: LayerType, learning_rate: float =.05):
+        self._value = 0
+        self._node_type = node_type
+        self._learning_rate = learning_rate
+        self._weights = {}
+
+
+
+
+
+
 def load_xor():
     """
     Defines an XOR feature and label set and
@@ -447,11 +489,3 @@ def unit_test():
 
 if __name__ == '__main__':
     unit_test()
-
-"""
-Train Indices:[0, 6, 9]
-Test Indices:[1, 2, 3, 4, 5, 7, 8]
-No errors were identified by the unit test.
-You should still double check that your code meets spec.
-You should also check that PyCharm does not identify any PEP-8 issues.
-"""
