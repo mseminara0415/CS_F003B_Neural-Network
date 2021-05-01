@@ -2,6 +2,7 @@
 Build a NNData class that will help us better manage our training and
 testing data.
 """
+from abc import ABC, abstractmethod
 from collections import deque
 from enum import Enum
 import numpy as np
@@ -267,7 +268,7 @@ class LayerType(Enum):
     OUTPUT = 2
 
 
-class MultiLinkNode:
+class MultiLinkNode(ABC):
     class Side(Enum):
         UPSTREAM = 0
         DOWNSTREAM = 1
@@ -297,10 +298,6 @@ class Neurode(MultiLinkNode):
         self._node_type = node_type
         self._learning_rate = learning_rate
         self._weights = {}
-
-
-
-
 
 
 def load_xor():
@@ -385,7 +382,7 @@ def unit_test_assignment1():
               " than 1 passed")
 
 
-def unit_test():
+def unit_test_assignment2():
     errors = False
     try:
         # Create a valid small and large dataset to be used later
@@ -485,6 +482,10 @@ def unit_test():
         print("You should still double check that your code meets spec.")
         print("You should also check that PyCharm does not identify any "
               "PEP-8 issues.")
+
+def unit_test():
+    test = Neurode(LayerType.INPUT)
+    print(test)
 
 
 if __name__ == '__main__':
