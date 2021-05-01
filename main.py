@@ -283,6 +283,7 @@ class MultiLinkNode(ABC):
                            MultiLinkNode.Side.DOWNSTREAM: []}
 
     def __str__(self):
+        """ reset string"""
         pass
 
     def _process_new_neighbor(self, node, side: Enum):
