@@ -285,7 +285,7 @@ class MultiLinkNode(ABC):
                            MultiLinkNode.Side.DOWNSTREAM: []}
 
     def __str__(self):
-        """ Print ID of current node and neighbors"""
+        """ Print ID of current node and neighbors."""
         neighbors_upstream = [id(x) for x in self._neighbors[MultiLinkNode.Side.UPSTREAM]]
         neighbors_downstream = [id(x) for x in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]]
         return f"Current Node ID:{id(self)}\n" \
@@ -336,9 +336,27 @@ class Neurode(MultiLinkNode):
     def __init__(self, node_type: LayerType, learning_rate: float = .05):
         self._value = 0
         self._node_type = node_type
-        self.learning_rate = learning_rate
+        self._learning_rate = learning_rate
         self._weights = {}
         super(Neurode, self).__init__()
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def node_type(self):
+        """Get node type"""
+        return self._node_type
+
+    @property
+    def learning_rate(self):
+        """Get learning rate."""
+        return self._learning_rate
+
+    @learning_rate.setter
+    def learning_rate(self, new_learning_rate: float):
+        self._learning_rate = new_learning_rate
 
     def _process_new_neighbor(self, node, side: Enum):
         """
@@ -349,15 +367,38 @@ class Neurode(MultiLinkNode):
         """
         if side == MultiLinkNode.Side.UPSTREAM:
             self._weights[node] = random.uniform(0, 1)
+        else:
+            pass
 
-    def _check_in(self, node, side):
+    def _check_in(self, node, side: MultiLinkNode.Side):
         if side == MultiLinkNode.Side.UPSTREAM:
             node_index = self._neighbors[MultiLinkNode.Side.UPSTREAM].index(node)
-            self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] = bin(node_index)
+            new_report = 2**node_index
+            self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] = self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] | new_report
+            upstream_reference_value = self._reference_value[MultiLinkNode.Side.UPSTREAM]
+            if upstream_reference_value == self._reporting_nodes[MultiLinkNode.Side.UPSTREAM]:
+                self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] = 0
+                return True
+            else:
+                return False
 
+        elif side == MultiLinkNode.Side.DOWNSTREAM:
+            node_index = self._neighbors[MultiLinkNode.Side.DOWNSTREAM].index(node)
+            self._reporting_nodes[MultiLinkNode.Side.DOWNSTREAM] = 2**node_index
+            downstream_reference_value = self._reference_value[MultiLinkNode.Side.DOWNSTREAM]
+            if downstream_reference_value == self._reporting_nodes[MultiLinkNode.Side.DOWNSTREAM]:
+                self._reporting_nodes[MultiLinkNode.Side.DOWNSTREAM] = 0
+                return True
+            else:
+                return False
 
     def get_weight(self, node):
-        pass
+        """
+        Look up node in weights dictionary to find associated weight.
+        :param node:
+        :return:
+        """
+        return self._weights[node]
 
 
 def load_xor():
@@ -374,176 +415,7 @@ def load_xor():
                              train_factor=1)
 
 
-def unit_test_assignment1():
-    """
-    Test constructor and methods from NNData class to make sure that they are
-    up to spec.
-    :return:
-    """
-
-    # Define good and bad feature/label sets
-    bad_features_lengths = [[0, 0], [1, 0]]
-    bad_features_values = [[0, 0], [1, "Cat"], [0, 1], [1, "Green"]]
-    bad_label_value = [[0], [1], ["Cat"], [0]]
-    features = [[0, 0], [1, 0], [0, 1], [1, 1]]
-    labels = [[0], [1], [1], [0]]
-
-    # Test DataMismatchError when calling load_data
-    try:
-        test1 = NNData()
-        test1.load_data(features=bad_features_lengths, labels=labels)
-        print("FAIL: NNData.load_data() did not raise DataMismatchError.")
-    except DataMismatchError:
-        print("SUCCESS: NNData.load_data() raises DataMismatchError when "
-              "features and labels have different lengths.")
-
-    # Test ValueError when non-float values called during method 'load_data'.
-    try:
-        test2 = NNData()
-        test2.load_data(features=bad_features_values, labels=labels)
-        print("FAIL: NNData.load_data() did not raise ValueError.")
-    except ValueError:
-        print("SUCCESS: NNData.load_data() raises ValueError when "
-              "either features or labels include non-float values.")
-
-    # Verify that if invalid data are passed to the constructor that labels and
-    # features are set to None.
-    test3 = NNData(bad_features_values, labels, .8)
-    if test3._labels is None and test3._features is None:
-        print("SUCCESS: invalid feature data passed to the constructor sets "
-              "features and labels to None")
-    else:
-        print("FAIL: features or labels not set to None after invalid data "
-              "passed to the constructor")
-
-    test4 = NNData(features, bad_label_value, .8)
-    if test4._labels is None and test4._features is None:
-        print("SUCCESS: invalid label data passed to the constructor sets "
-              "features and labels to None")
-    else:
-        print("FAIL: features or labels not set to None after invalid data "
-              "passed to the constructor")
-
-    # Verify that training factor is limited to range between 0 and 1
-    test5 = NNData(features, labels, -5)
-    if test5._train_factor == 0:
-        print("SUCCESS: training factor limited to zero when negative value "
-              "passed")
-    else:
-        print("FAIL: training factor not limited to zero when negative value "
-              "passed")
-
-    test6 = NNData(features, labels, 5)
-    if test6._train_factor == 1:
-        print("SUCCESS: training factor limited to one when a value greater "
-              " than 1 was passed")
-    else:
-        print("FAIL: training factor not limited to 1 when a value greater "
-              " than 1 passed")
-
-
-def unit_test_assignment2():
-    errors = False
-    try:
-        # Create a valid small and large dataset to be used later
-        x = [[i] for i in range(10)]
-        y = x
-        our_data_0 = NNData(x, y)
-        x = [[i] for i in range(100)]
-        y = x
-        our_big_data = NNData(x, y, .5)
-
-        # Try loading lists of different sizes
-        y = [[1]]
-        try:
-            our_bad_data = NNData()
-            our_bad_data.load_data(x, y)
-            raise Exception
-        except DataMismatchError:
-            pass
-        except:
-            raise Exception
-
-        # Create a dataset that can be used to make sure the
-        # features and labels are not confused
-        x = [[1.0], [2.0], [3.0], [4.0]]
-        y = [[.1], [.2], [.3], [.4]]
-        our_data_1 = NNData(x, y, .5)
-
-    except:
-        print("There are errors that likely come from __init__ or a "
-              "method called by __init__")
-        errors = True
-
-    # Test split_set to make sure the correct number of examples are in
-    # each set, and that the indices do not overlap.
-    try:
-        our_data_0.split_set(.3)
-        print(f"Train Indices:{our_data_0._train_indices}")
-        print(f"Test Indices:{our_data_0._test_indices}")
-
-        assert len(our_data_0._train_indices) == 3
-        assert len(our_data_0._test_indices) == 7
-        assert (list(set(our_data_0._train_indices +
-                         our_data_0._test_indices))) == list(range(10))
-    except:
-        print("There are errors that likely come from split_set")
-        errors = True
-
-    # Make sure prime_data sets up the deques correctly, whether
-    # sequential or random.
-    try:
-        our_data_0.prime_data(order=NNData.Order.SEQUENTIAL)
-        assert len(our_data_0._train_pool) == 3
-        assert len(our_data_0._test_pool) == 7
-        assert our_data_0._train_indices == list(our_data_0._train_pool)
-        assert our_data_0._test_indices == list(our_data_0._test_pool)
-        our_big_data.prime_data(order=NNData.Order.RANDOM)
-        assert our_big_data._train_indices != list(our_big_data._train_pool)
-        assert our_big_data._test_indices != list(our_big_data._test_pool)
-    except:
-        print("There are errors that likely come from prime_data")
-        errors = True
-
-    # Make sure get_one_item is returning the correct values, and
-    # that pool_is_empty functions correctly.
-    try:
-        our_data_1.prime_data(order=NNData.Order.SEQUENTIAL)
-        my_x_list = []
-        my_y_list = []
-        while not our_data_1.pool_is_empty():
-            example = our_data_1.get_one_item()
-            my_x_list.append(example[0])
-            my_y_list.append(example[1])
-        assert len(my_x_list) == 2
-        assert my_x_list != my_y_list
-        my_matched_x_list = [i * 10 for i in my_y_list]
-        assert my_matched_x_list == my_x_list
-        while not our_data_1.pool_is_empty(our_data_1.Set.TEST):
-            example = our_data_1.get_one_item(our_data_1.Set.TEST)
-            my_x_list.append(example[0])
-            my_y_list.append(example[1])
-        assert my_x_list != my_y_list
-        my_matched_x_list = [i * 10 for i in my_y_list]
-        assert my_matched_x_list == my_x_list
-        assert set(i[0] for i in my_x_list) == set(i[0] for i in x)
-        assert set(i[0] for i in my_y_list) == set(i[0] for i in y)
-    except:
-        print("There are errors that may come from prime_data, but could "
-              "be from another method")
-        errors = True
-
-    # Summary
-    if errors:
-        print("You have one or more errors.  Please fix them before "
-              "submitting")
-    else:
-        print("No errors were identified by the unit test.")
-        print("You should still double check that your code meets spec.")
-        print("You should also check that PyCharm does not identify any "
-              "PEP-8 issues.")
-
-def check_point_one_test():
+def check_point_one_test_modified():
 
     # Mock up a network with three inputs and three outputs
 
@@ -566,7 +438,7 @@ def check_point_one_test():
         print("Success - Final reference DOWNSTREAM value is correct")
 
     if not inputs[0]._reference_value[MultiLinkNode.Side.UPSTREAM] == 0:
-        print("Fail - Final reference value is correct")
+        print("Fail - Final reference value is not correct")
     else:
         print("Success - Final reference UPSTREAM value is correct")
 
@@ -588,12 +460,12 @@ def check_point_one_test():
         print("Fail - _check_in returned True but not all nodes were"
               "checked in")
     if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 5:
-        print("Fail - reporting value is not correct")
+        print("Fail - reporting value is not correct 5")
     if outputs[0]._check_in(inputs[2], MultiLinkNode.Side.UPSTREAM):
         print("Fail - _check_in returned True but not all nodes were"
               "checked in (double fire)")
     if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 5:
-        print("Fail - reporting value is not correct")
+        print("Fail - reporting value is not correct 5")
     if not outputs[0]._check_in(inputs[1], MultiLinkNode.Side.UPSTREAM):
         print("Fail - _check_in returned False after all nodes were"
               "checked in")
@@ -631,6 +503,79 @@ def check_point_one_test():
             weight_list.append(node.get_weight(t_node))
 
 
+def check_point_one_test():
+
+    # Mock up a network with three inputs and three outputs
+
+    inputs = [Neurode(LayerType.INPUT) for _ in range(3)]
+    outputs = [Neurode(LayerType.OUTPUT, .01) for _ in range(3)]
+    if not inputs[0]._reference_value[MultiLinkNode.Side.DOWNSTREAM] == 0:
+        print("Fail - Initial reference value is not zero")
+    for node in inputs:
+        node.reset_neighbors(outputs, MultiLinkNode.Side.DOWNSTREAM)
+    for node in outputs:
+        node.reset_neighbors(inputs, MultiLinkNode.Side.UPSTREAM)
+    if not inputs[0]._reference_value[MultiLinkNode.Side.DOWNSTREAM] == 7:
+        print("Fail - Final reference value is not correct")
+    if not inputs[0]._reference_value[MultiLinkNode.Side.UPSTREAM] == 0:
+        print("Fail - Final reference value is not correct")
+
+    # Report data ready from each input and make sure _check_in
+    # only reports True when all nodes have reported
+
+    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 0:
+        print("Fail - Initial reporting value is not zero")
+    if outputs[0]._check_in(inputs[0], MultiLinkNode.Side.UPSTREAM):
+        print("Fail - _check_in returned True but not all nodes were"
+              "checked in")
+    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 1:
+        print("Fail - reporting value is not correct")
+    if outputs[0]._check_in(inputs[2], MultiLinkNode.Side.UPSTREAM):
+        print("Fail - _check_in returned True but not all nodes were"
+              "checked in")
+    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 5:
+        print("Fail - reporting value is not correct")
+    if outputs[0]._check_in(inputs[2], MultiLinkNode.Side.UPSTREAM):
+        print("Fail - _check_in returned True but not all nodes were"
+              "checked in (double fire)")
+    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 5:
+        print("Fail - reporting value is not correct")
+    if not outputs[0]._check_in(inputs[1], MultiLinkNode.Side.UPSTREAM):
+        print("Fail - _check_in returned False after all nodes were"
+              "checked in")
+
+    # Report data ready from each output and make sure _check_in
+    # only reports True when all nodes have reported
+
+    if inputs[1]._check_in(outputs[0], MultiLinkNode.Side.DOWNSTREAM):
+        print("Fail - _check_in returned True but not all nodes were"
+              "checked in")
+    if inputs[1]._check_in(outputs[2], MultiLinkNode.Side.DOWNSTREAM):
+        print("Fail - _check_in returned True but not all nodes were"
+              "checked in")
+    if inputs[1]._check_in(outputs[0], MultiLinkNode.Side.DOWNSTREAM):
+        print("Fail - _check_in returned True but not all nodes were"
+              "checked in (double fire)")
+    if not inputs[1]._check_in(outputs[1], MultiLinkNode.Side.DOWNSTREAM):
+        print("Fail - _check_in returned False after all nodes were"
+              "checked in output")
+
+    # Check that learning rates were set correctly
+
+    if not inputs[0].learning_rate == .05:
+        print("Fail - default learning rate was not set")
+    if not outputs[0].learning_rate == .01:
+        print("Fail - specified learning rate was not set")
+
+    # Check that weights appear random
+
+    weight_list = list()
+    for node in outputs:
+        for t_node in inputs:
+            if node.get_weight(t_node) in weight_list:
+                print("Fail - weights do not appear to be set up properly")
+            weight_list.append(node.get_weight(t_node))
+
 def testing():
     example = Neurode(LayerType.INPUT)
     example_upstream1 = Neurode(LayerType.INPUT)
@@ -639,11 +584,15 @@ def testing():
     example_downstream1 = Neurode(LayerType.OUTPUT)
 
     example.reset_neighbors([example_upstream1, example_upstream2, example_upstream3], MultiLinkNode.Side.UPSTREAM)
+    example.reset_neighbors([example_downstream1],MultiLinkNode.Side.DOWNSTREAM)
     example._check_in(example_upstream1, MultiLinkNode.Side.UPSTREAM)
+    example._check_in(example_upstream2, MultiLinkNode.Side.UPSTREAM)
+    example._check_in(example_upstream3, MultiLinkNode.Side.UPSTREAM)
+    example._check_in(example_downstream1,MultiLinkNode.Side.DOWNSTREAM)
     print(example._reporting_nodes)
-
+    print(example._neighbors)
 
 
 
 if __name__ == '__main__':
-    check_point_one_test()
+   check_point_one_test()
