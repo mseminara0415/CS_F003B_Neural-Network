@@ -345,12 +345,15 @@ class MultiLinkNode(ABC):
 
 
 class Neurode(MultiLinkNode):
-    """
-    This class is inherited from class MultiLinkNode. Allows us associate nodes
-    with neighboring nodes and check them in when they report they have data.
-    """
 
     def __init__(self, node_type: LayerType, learning_rate: float = .05):
+        """
+        This class is inherited from class MultiLinkNode. Allows us associate nodes
+        with neighboring nodes and check them check-in after reporting they have
+        data.
+        :param node_type:
+        :param learning_rate:
+        """
         self._value = 0
         self._node_type = node_type
         self._learning_rate = learning_rate
