@@ -10,7 +10,6 @@ import random
 from math import floor
 
 
-
 class DataMismatchError(Exception):
     """
     This custom exception is raised if our features and labels do not match
@@ -270,7 +269,9 @@ class LayerType(Enum):
 
 
 class MultiLinkNode(ABC):
-
+    """
+    Abstract Class that will be the starting point for the FFBPNeurode class.
+    """
     class Side(Enum):
         UPSTREAM = 0
         DOWNSTREAM = 1
@@ -286,14 +287,22 @@ class MultiLinkNode(ABC):
 
     def __str__(self):
         """ Print ID of current node and neighbors."""
-        neighbors_upstream = [id(x) for x in self._neighbors[MultiLinkNode.Side.UPSTREAM]]
-        neighbors_downstream = [id(x) for x in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]]
+        neighbors_upstream = [id(x) for x in
+                              self._neighbors[MultiLinkNode.Side.UPSTREAM]]
+        neighbors_downstream = [id(x) for x in
+                                self._neighbors[MultiLinkNode.Side.DOWNSTREAM]]
         return f"Current Node ID:{id(self)}\n" \
                f"Upstream Neighbor ID's: {neighbors_upstream}\n" \
                f"Downstream Neighbor ID's: {neighbors_downstream}"
 
     @abstractmethod
     def _process_new_neighbor(self, node, side: Enum):
+        """
+        Method that will be created in child class Neurode.
+        :param node:
+        :param side:
+        :return:
+        """
         pass
 
     def reset_neighbors(self, nodes: list, side: Enum):
@@ -312,10 +321,12 @@ class MultiLinkNode(ABC):
 
             # Call Process New Neighbor method
             for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
-                self._process_new_neighbor(node=node,side=MultiLinkNode.Side.UPSTREAM)
+                self._process_new_neighbor(node=node,
+                                           side=MultiLinkNode.Side.UPSTREAM)
 
             # Calculate Reference Value
-            self._reference_value[MultiLinkNode.Side.UPSTREAM] = 2**len(self._neighbors[MultiLinkNode.Side.UPSTREAM])-1
+            self._reference_value[MultiLinkNode.Side.UPSTREAM] = 2 ** len(
+                self._neighbors[MultiLinkNode.Side.UPSTREAM]) - 1
 
         elif side == MultiLinkNode.Side.DOWNSTREAM:
 
@@ -325,7 +336,8 @@ class MultiLinkNode(ABC):
 
             # Call Process New Neighbor method
             for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-                self._process_new_neighbor(node=node, side=MultiLinkNode.Side.DOWNSTREAM)
+                self._process_new_neighbor(node=node,
+                                           side=MultiLinkNode.Side.DOWNSTREAM)
 
                 # Calculate Reference Value
                 self._reference_value[MultiLinkNode.Side.DOWNSTREAM] = 2 ** len(
@@ -333,6 +345,11 @@ class MultiLinkNode(ABC):
 
 
 class Neurode(MultiLinkNode):
+    """
+    This class is inherited from class MultiLinkNode. Allows us associate nodes
+    with neighboring nodes and check them in when they report they have data.
+    """
+
     def __init__(self, node_type: LayerType, learning_rate: float = .05):
         self._value = 0
         self._node_type = node_type
@@ -342,11 +359,15 @@ class Neurode(MultiLinkNode):
 
     @property
     def value(self):
+        """
+        Return current value of neurode.
+        :return:
+        """
         return self._value
 
     @property
     def node_type(self):
-        """Get node type"""
+        """Get node type. This is one of the LayerType elements"""
         return self._node_type
 
     @property
@@ -356,9 +377,14 @@ class Neurode(MultiLinkNode):
 
     @learning_rate.setter
     def learning_rate(self, new_learning_rate: float):
+        """
+        Set learning rate parameter.
+        :param new_learning_rate:
+        :return:
+        """
         self._learning_rate = new_learning_rate
 
-    def _process_new_neighbor(self, node, side: Enum):
+    def _process_new_neighbor(self, node: 'Neurode', side: Enum):
         """
         Process new node neighbors.
         :param node:
@@ -370,29 +396,50 @@ class Neurode(MultiLinkNode):
         else:
             pass
 
-    def _check_in(self, node, side: MultiLinkNode.Side):
+    def _check_in(self, node: 'Neurode', side: MultiLinkNode.Side):
+        """
+        Method called when neighboring nodes check-in with data.
+        :param node:
+        :param side:
+        :return:
+        """
+
+        # Up-stream/down-stream Sides
+        up_stream = MultiLinkNode.Side.UPSTREAM
+        down_stream = MultiLinkNode.Side.DOWNSTREAM
+
+        # Check in process for up-stream nodes
         if side == MultiLinkNode.Side.UPSTREAM:
-            node_index = self._neighbors[MultiLinkNode.Side.UPSTREAM].index(node)
-            new_report = 2**node_index
-            self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] = self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] | new_report
-            upstream_reference_value = self._reference_value[MultiLinkNode.Side.UPSTREAM]
-            if upstream_reference_value == self._reporting_nodes[MultiLinkNode.Side.UPSTREAM]:
-                self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] = 0
+            node_index = self._neighbors[up_stream].index(node)
+            new_report = 2 ** node_index
+            self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] = \
+                self._reporting_nodes[up_stream] | new_report
+            upstream_reference_value = self._reference_value[
+                up_stream]
+
+            # Validate if all up-stream nodes have checked in
+            if upstream_reference_value == self._reporting_nodes[up_stream]:
+                self._reporting_nodes[up_stream] = 0
                 return True
             else:
                 return False
 
-        elif side == MultiLinkNode.Side.DOWNSTREAM:
-            node_index = self._neighbors[MultiLinkNode.Side.DOWNSTREAM].index(node)
-            self._reporting_nodes[MultiLinkNode.Side.DOWNSTREAM] = 2**node_index
-            downstream_reference_value = self._reference_value[MultiLinkNode.Side.DOWNSTREAM]
-            if downstream_reference_value == self._reporting_nodes[MultiLinkNode.Side.DOWNSTREAM]:
-                self._reporting_nodes[MultiLinkNode.Side.DOWNSTREAM] = 0
+        # Check-in process for down-stream nodes
+        elif side == down_stream:
+            node_index = self._neighbors[down_stream].index(node)
+            new_report = 2 ** node_index
+            self._reporting_nodes[down_stream] = \
+                self._reporting_nodes[down_stream] | new_report
+            downstream_reference_value = self._reference_value[down_stream]
+
+            # Validate if all nodes have checked in
+            if downstream_reference_value == self._reporting_nodes[down_stream]:
+                self._reporting_nodes[down_stream] = 0
                 return True
             else:
                 return False
 
-    def get_weight(self, node):
+    def get_weight(self, node: 'Neurode'):
         """
         Look up node in weights dictionary to find associated weight.
         :param node:
@@ -415,96 +462,7 @@ def load_xor():
                              train_factor=1)
 
 
-def check_point_one_test_modified():
-
-    # Mock up a network with three inputs and three outputs
-
-    inputs = [Neurode(LayerType.INPUT) for _ in range(3)]
-    outputs = [Neurode(LayerType.OUTPUT, .01) for _ in range(3)]
-
-    if not inputs[0]._reference_value[MultiLinkNode.Side.DOWNSTREAM] == 0:
-        print("Fail - Initial reference value is not zero")
-    else:
-        print("Success - Initial reference value is zero")
-
-    for node in inputs:
-        node.reset_neighbors(outputs, MultiLinkNode.Side.DOWNSTREAM)
-    for node in outputs:
-        node.reset_neighbors(inputs, MultiLinkNode.Side.UPSTREAM)
-
-    if not inputs[0]._reference_value[MultiLinkNode.Side.DOWNSTREAM] == 7:
-        print("Fail - Final reference value is not correct")
-    else:
-        print("Success - Final reference DOWNSTREAM value is correct")
-
-    if not inputs[0]._reference_value[MultiLinkNode.Side.UPSTREAM] == 0:
-        print("Fail - Final reference value is not correct")
-    else:
-        print("Success - Final reference UPSTREAM value is correct")
-
-    # Report data ready from each input and make sure _check_in
-    # only reports True when all nodes have reported
-
-    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 0:
-        print("Fail - Initial reporting value is not zero")
-
-    else:
-        print("Success - Initial reporting value is zero")
-
-    if outputs[0]._check_in(inputs[0], MultiLinkNode.Side.UPSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in")
-    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 1:
-        print("Fail - reporting value is not correct")
-    if outputs[0]._check_in(inputs[2], MultiLinkNode.Side.UPSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in")
-    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 5:
-        print("Fail - reporting value is not correct 5")
-    if outputs[0]._check_in(inputs[2], MultiLinkNode.Side.UPSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in (double fire)")
-    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 5:
-        print("Fail - reporting value is not correct 5")
-    if not outputs[0]._check_in(inputs[1], MultiLinkNode.Side.UPSTREAM):
-        print("Fail - _check_in returned False after all nodes were"
-              "checked in")
-
-    # Report data ready from each output and make sure _check_in
-    # only reports True when all nodes have reported
-
-    if inputs[1]._check_in(outputs[0], MultiLinkNode.Side.DOWNSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in")
-    if inputs[1]._check_in(outputs[2], MultiLinkNode.Side.DOWNSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in")
-    if inputs[1]._check_in(outputs[0], MultiLinkNode.Side.DOWNSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in (double fire)")
-    if not inputs[1]._check_in(outputs[1], MultiLinkNode.Side.DOWNSTREAM):
-        print("Fail - _check_in returned False after all nodes were"
-              "checked in")
-
-    # Check that learning rates were set correctly
-
-    if not inputs[0].learning_rate == .05:
-        print("Fail - default learning rate was not set")
-    if not outputs[0].learning_rate == .01:
-        print("Fail - specified learning rate was not set")
-
-    # Check that weights appear random
-
-    weight_list = list()
-    for node in outputs:
-        for t_node in inputs:
-            if node.get_weight(t_node) in weight_list:
-                print("Fail - weights do not appear to be set up properly")
-            weight_list.append(node.get_weight(t_node))
-
-
 def check_point_one_test():
-
     # Mock up a network with three inputs and three outputs
 
     inputs = [Neurode(LayerType.INPUT) for _ in range(3)]
@@ -576,23 +534,6 @@ def check_point_one_test():
                 print("Fail - weights do not appear to be set up properly")
             weight_list.append(node.get_weight(t_node))
 
-def testing():
-    example = Neurode(LayerType.INPUT)
-    example_upstream1 = Neurode(LayerType.INPUT)
-    example_upstream2 = Neurode(LayerType.INPUT)
-    example_upstream3 = Neurode(LayerType.INPUT)
-    example_downstream1 = Neurode(LayerType.OUTPUT)
-
-    example.reset_neighbors([example_upstream1, example_upstream2, example_upstream3], MultiLinkNode.Side.UPSTREAM)
-    example.reset_neighbors([example_downstream1],MultiLinkNode.Side.DOWNSTREAM)
-    example._check_in(example_upstream1, MultiLinkNode.Side.UPSTREAM)
-    example._check_in(example_upstream2, MultiLinkNode.Side.UPSTREAM)
-    example._check_in(example_upstream3, MultiLinkNode.Side.UPSTREAM)
-    example._check_in(example_downstream1,MultiLinkNode.Side.DOWNSTREAM)
-    print(example._reporting_nodes)
-    print(example._neighbors)
-
-
 
 if __name__ == '__main__':
-   check_point_one_test()
+    check_point_one_test()
