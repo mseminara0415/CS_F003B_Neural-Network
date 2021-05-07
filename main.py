@@ -8,6 +8,7 @@ from enum import Enum
 import numpy as np
 import random
 from math import floor
+import math
 
 
 class DataMismatchError(Exception):
@@ -451,6 +452,59 @@ class Neurode(MultiLinkNode):
         return self._weights[node]
 
 
+class FFNeurode(Neurode):
+    def __init__(self, my_type):
+        super().__init__(my_type)
+
+    @staticmethod
+    def _sigmoid(value):
+        return 1 / (1 + math.exp(-value))
+
+    def _calculate_value(self):
+        """
+        Calculate the weighted sum of upstream nodes' values. Pass this result
+        to the method 'sigmoid' and store returned value into _value attribute.
+        :return:
+        """
+        weighted_sum_list = []
+        for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
+            weight = self._weights[node]
+            node_value = node.value
+            print(weight)
+            print(node_value)
+            weighted_sum = node_value*weight
+            weighted_sum_list.append(weighted_sum)
+        print(weighted_sum_list)
+
+        weighted_sum = sum(weighted_sum_list)
+        print(weighted_sum)
+        print(self._sigmoid(weighted_sum))
+
+        # Set _value attribute
+        self._value = self._sigmoid(weighted_sum)
+
+    def _fire_downstream(self):
+        for down_stream_node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+            self.data_ready_upstream(self)
+
+    def data_ready_upstream(self, node):
+
+        # Register that the node has data
+        self._check_in(node, side=MultiLinkNode.Side.UPSTREAM)
+
+        # If node has data call methods 'calculate value' and 'fire downstream'
+        if self._check_in(node, side=MultiLinkNode.Side.UPSTREAM):
+            self._calculate_value()
+            self._fire_downstream()
+        else:
+            pass
+
+    def set_input(self, input_value):
+
+        # Set _value attribute to input_value parameter
+        self._value = input_value
+
+
 def load_xor():
     """
     Defines an XOR feature and label set and
@@ -538,5 +592,73 @@ def check_point_one_test():
             weight_list.append(node.get_weight(t_node))
 
 
+def check_point_two_test():
+    inodes = []
+    hnodes = []
+    onodes = []
+    for k in range(2):
+        inodes.append(FFNeurode(LayerType.INPUT))
+    for k in range(2):
+        hnodes.append(FFNeurode(LayerType.HIDDEN))
+    onodes.append(FFNeurode(LayerType.OUTPUT))
+    for node in inodes:
+        node.reset_neighbors(hnodes, MultiLinkNode.Side.DOWNSTREAM)
+    for node in hnodes:
+        node.reset_neighbors(inodes, MultiLinkNode.Side.UPSTREAM)
+        node.reset_neighbors(onodes, MultiLinkNode.Side.DOWNSTREAM)
+    for node in onodes:
+        node.reset_neighbors(hnodes, MultiLinkNode.Side.UPSTREAM)
+    try:
+        inodes[1].set_input(1)
+        assert onodes[0].value == 0
+    except:
+        print("Error: Neurodes may be firing before receiving all input")
+    inodes[0].set_input(0)
+
+    # Since input node 0 has value of 0 and input node 1 has value of
+    # one, the value of the hidden layers should be the sigmoid of the
+    # weight out of input node 1.
+    # print(f"WEIGHTS: {hnodes[0]._weights}")
+
+    value_0 = (1 / (1 + np.exp(-hnodes[0]._weights[inodes[1]])))
+    # print(f"value_0: {value_0}")
+    # print(f"value-0 node-value: {-hnodes[0]._weights[inodes[1]]}")
+    value_1 = (1 / (1 + np.exp(-hnodes[1]._weights[inodes[1]])))
+    # print(f"value-1 node-value: {-hnodes[1]._weights[inodes[1]]}")
+    # print(f"value_1: {value_1}")
+    inter = onodes[0]._weights[hnodes[0]] * value_0 + \
+            onodes[0]._weights[hnodes[1]] * value_1
+    # print(f"inter: {inter}")
+    final = (1 / (1 + np.exp(-inter)))
+    # print(f"final: {final}")
+    print(onodes[0].value)
+    try:
+        print(final, onodes[0].value)
+        # assert final == onodes[0].value
+        # assert 0 < final < 1
+    except:
+        print("Error: Calculation of neurode value may be incorrect")
+
+
+def testing():
+    example_upstream1 = FFNeurode(LayerType.INPUT)
+    example_upstream2 = FFNeurode(LayerType.INPUT)
+    example_upstream3 = FFNeurode(LayerType.INPUT)
+    example_downstream1 = FFNeurode(LayerType.OUTPUT)
+    example2 = FFNeurode(LayerType.INPUT)
+    example2.reset_neighbors(
+        [example_upstream1, example_upstream2, example_upstream3],
+        MultiLinkNode.Side.UPSTREAM)
+    example2.reset_neighbors([example_downstream1],
+                            MultiLinkNode.Side.DOWNSTREAM)
+    example_upstream1.set_input(5)
+    example_upstream2.set_input(10)
+    example_upstream3.set_input(15)
+    example2._calculate_value()
+
+
+
+
 if __name__ == '__main__':
-    check_point_one_test()
+    check_point_two_test()
+
