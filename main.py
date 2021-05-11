@@ -466,43 +466,48 @@ class FFNeurode(Neurode):
         to the method 'sigmoid' and store returned value into _value attribute.
         :return:
         """
+
         weighted_sum_list = []
-        for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
-            weight = self._weights[node]
-            node_value = node.value
-            print(weight)
-            print(node_value)
-            weighted_sum = node_value*weight
-            weighted_sum_list.append(weighted_sum)
-        print(weighted_sum_list)
+        for k, v in self._weights.items():
+            weighted_value = k.value*v
+            weighted_sum_list.append(weighted_value)
 
         weighted_sum = sum(weighted_sum_list)
-        print(weighted_sum)
-        print(self._sigmoid(weighted_sum))
 
         # Set _value attribute
         self._value = self._sigmoid(weighted_sum)
 
     def _fire_downstream(self):
-        for down_stream_node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-            self.data_ready_upstream(self)
+        """
+        Runs the method 'data_ready_upstream' for each neighboring downstream
+        node.
+        :return:
+        """
+
+        for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+            node.data_ready_upstream(self)
 
     def data_ready_upstream(self, node):
-
-        # Register that the node has data
-        self._check_in(node, side=MultiLinkNode.Side.UPSTREAM)
+        """
+        Upstream Nodes will call this method once they have data ready.
+        :param node:
+        :return:
+        """
 
         # If node has data call methods 'calculate value' and 'fire downstream'
         if self._check_in(node, side=MultiLinkNode.Side.UPSTREAM):
             self._calculate_value()
             self._fire_downstream()
-        else:
-            pass
 
     def set_input(self, input_value):
+        """
+        Directly set the value of an input layer neurode.
+        :param input_value:
+        :return:
+        """
 
-        # Set _value attribute to input_value parameter
         self._value = input_value
+        self._fire_downstream()
 
 
 def load_xor():
@@ -618,47 +623,26 @@ def check_point_two_test():
     # Since input node 0 has value of 0 and input node 1 has value of
     # one, the value of the hidden layers should be the sigmoid of the
     # weight out of input node 1.
-    # print(f"WEIGHTS: {hnodes[0]._weights}")
 
     value_0 = (1 / (1 + np.exp(-hnodes[0]._weights[inodes[1]])))
-    # print(f"value_0: {value_0}")
-    # print(f"value-0 node-value: {-hnodes[0]._weights[inodes[1]]}")
     value_1 = (1 / (1 + np.exp(-hnodes[1]._weights[inodes[1]])))
-    # print(f"value-1 node-value: {-hnodes[1]._weights[inodes[1]]}")
-    # print(f"value_1: {value_1}")
     inter = onodes[0]._weights[hnodes[0]] * value_0 + \
             onodes[0]._weights[hnodes[1]] * value_1
-    # print(f"inter: {inter}")
     final = (1 / (1 + np.exp(-inter)))
-    # print(f"final: {final}")
-    print(onodes[0].value)
     try:
         print(final, onodes[0].value)
-        # assert final == onodes[0].value
-        # assert 0 < final < 1
+        assert final == onodes[0].value
+        assert 0 < final < 1
     except:
         print("Error: Calculation of neurode value may be incorrect")
 
 
-def testing():
-    example_upstream1 = FFNeurode(LayerType.INPUT)
-    example_upstream2 = FFNeurode(LayerType.INPUT)
-    example_upstream3 = FFNeurode(LayerType.INPUT)
-    example_downstream1 = FFNeurode(LayerType.OUTPUT)
-    example2 = FFNeurode(LayerType.INPUT)
-    example2.reset_neighbors(
-        [example_upstream1, example_upstream2, example_upstream3],
-        MultiLinkNode.Side.UPSTREAM)
-    example2.reset_neighbors([example_downstream1],
-                            MultiLinkNode.Side.DOWNSTREAM)
-    example_upstream1.set_input(5)
-    example_upstream2.set_input(10)
-    example_upstream3.set_input(15)
-    example2._calculate_value()
-
-
-
-
 if __name__ == '__main__':
     check_point_two_test()
+
+
+"""
+========== Sample Run ==========
+0.6739651743898595 0.6739651743898595
+"""
 
