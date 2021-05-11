@@ -453,6 +453,11 @@ class Neurode(MultiLinkNode):
 
 
 class FFNeurode(Neurode):
+    """
+    Calculates weighted values from upstream nodes which are then bound to a
+    range 0-1 through the sigmoid function. This weighted sum value is then
+    communicated to all downstream neighboring nodes.
+    """
     def __init__(self, my_type):
         super().__init__(my_type)
 
@@ -467,11 +472,13 @@ class FFNeurode(Neurode):
         :return:
         """
 
+        # Calculate weighted values of upstream nodes
         weighted_sum_list = []
         for k, v in self._weights.items():
             weighted_value = k.value*v
             weighted_sum_list.append(weighted_value)
 
+        # Sum list of weighted values
         weighted_sum = sum(weighted_sum_list)
 
         # Set _value attribute
