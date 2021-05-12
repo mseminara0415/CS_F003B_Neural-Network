@@ -517,6 +517,38 @@ class FFNeurode(Neurode):
         self._fire_downstream()
 
 
+class BPNeurode(Neurode):
+    def __init__(self, my_type):
+        super().__init__(my_type)
+        self._delta = 0
+
+    @property
+    def _delta(self):
+        return self._delta
+
+    @staticmethod
+    def _sigmoid_derivative(value):
+        pass
+
+    def _calculate_delta(self, expected_value=None):
+        pass
+
+    def data_ready_downstream(self, node):
+        pass
+
+    def set_expected(self, expected_value):
+        pass
+
+    def adjust_weight(self):
+        pass
+
+    def _update_weights(self):
+        pass
+
+    def _fire_upstream(self):
+        pass
+
+
 def load_xor():
     """
     Defines an XOR feature and label set and
