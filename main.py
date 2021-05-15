@@ -520,7 +520,6 @@ class FFNeurode(Neurode):
 class BPNeurode(Neurode):
     def __init__(self, my_type):
         super().__init__(my_type)
-        self._delta = 0
 
     @property
     def _delta(self):
@@ -528,25 +527,41 @@ class BPNeurode(Neurode):
 
     @staticmethod
     def _sigmoid_derivative(value):
-        pass
+        return value*(1 - value)
 
     def _calculate_delta(self, expected_value=None):
         pass
 
     def data_ready_downstream(self, node):
-        pass
+        """
+        Downstream Nodes will call this method once they have data ready.
+        :param node:
+        :return:
+        """
+
+        # If node has data call methods '_calculate_delta' and '_fire_upstream'
+        if self._check_in(node, side=MultiLinkNode.Side.DOWNSTREAM):
+            self._calculate_delta()
+            self._fire_upstream()
 
     def set_expected(self, expected_value):
         pass
 
-    def adjust_weight(self):
+    def adjust_weights(self, node, adjustment):
         pass
 
     def _update_weights(self):
         pass
 
     def _fire_upstream(self):
-        pass
+        """
+        Runs the method 'data_ready_upstream' for each neighboring downstream
+        node.
+        :return:
+        """
+
+        for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+            node.data_ready_downstream(self)
 
 
 def load_xor():
