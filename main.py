@@ -520,9 +520,10 @@ class FFNeurode(Neurode):
 class BPNeurode(Neurode):
     def __init__(self, my_type):
         super().__init__(my_type)
+        self._delta = 0
 
     @property
-    def _delta(self):
+    def delta(self):
         return self._delta
 
     @staticmethod
@@ -530,7 +531,20 @@ class BPNeurode(Neurode):
         return value*(1 - value)
 
     def _calculate_delta(self, expected_value=None):
-        pass
+        """
+        Calculate the delta between the node value and the expected Value. If
+        node type is of 'Output' then calculate 1st way. Else calculate another way.
+        :param expected_value:
+        :return:
+        """
+        if self._node_type == LayerType.OUTPUT:
+            delta = 0
+        elif self._node_type == LayerType.HIDDEN:
+            delta = 0
+        else:
+            delta = 0
+
+        self._delta = delta
 
     def data_ready_downstream(self, node):
         """
@@ -545,13 +559,36 @@ class BPNeurode(Neurode):
             self._fire_upstream()
 
     def set_expected(self, expected_value):
-        pass
+        """
+        Directly set the value of an output layer neurode.
+        :param expected_value:
+        :return:
+        """
+        if self.node_type == LayerType.OUTPUT:
+            self._calculate_delta(expected_value)
+            for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
+                node.data_ready_downstream(self)
 
     def adjust_weights(self, node, adjustment):
-        pass
+        """
+        Called by an upstream node, using node reference to add adjustment to
+        appropriate entry of self._weights.
+        :param node:
+        :param adjustment:
+        :return:
+        """
+        self._weights[node] = adjustment
 
     def _update_weights(self):
-        pass
+        """
+        Iterate through its downstream neighbors, and use adjust_weights to
+        request an adjustment to the weight given to this node's data.
+        :return:
+        """
+
+        # Loop through downstream neighbors and use method 'adjust_weights'
+        for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+            pass
 
     def _fire_upstream(self):
         """
@@ -562,6 +599,10 @@ class BPNeurode(Neurode):
 
         for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
             node.data_ready_downstream(self)
+
+
+class FFBPNeurode(FFNeurode, BPNeurode):
+    pass
 
 
 def load_xor():
@@ -691,12 +732,143 @@ def check_point_two_test():
         print("Error: Calculation of neurode value may be incorrect")
 
 
+def main():
+    try:
+        test_neurode = BPNeurode(LayerType.HIDDEN)
+    except:
+        print("Error - Cannot instaniate a BPNeurode object")
+        return
+    print("Testing Sigmoid Derivative")
+    try:
+        assert BPNeurode._sigmoid_derivative(0) == 0
+        if test_neurode._sigmoid_derivative(.4) == .24:
+            print("Pass")
+        else:
+            print("_sigmoid_derivative is not returning the correct "
+                  "result")
+    except:
+        print("Error - Is _sigmoid_derivative named correctly, created "
+              "in BPNeurode and decorated as a static method?")
+    print("Testing Instance objects")
+    try:
+        test_neurode.learning_rate
+        test_neurode.delta
+        print("Pass")
+    except:
+        print("Error - Are all instance objects created in __init__()?")
+
+    inodes = []
+    hnodes = []
+    onodes = []
+    for k in range(2):
+        inodes.append(FFBPNeurode(LayerType.INPUT))
+        hnodes.append(FFBPNeurode(LayerType.HIDDEN))
+        onodes.append(FFBPNeurode(LayerType.OUTPUT))
+    for node in inodes:
+        node.reset_neighbors(hnodes, MultiLinkNode.Side.DOWNSTREAM)
+    for node in hnodes:
+        node.reset_neighbors(inodes, MultiLinkNode.Side.UPSTREAM)
+        node.reset_neighbors(onodes, MultiLinkNode.Side.DOWNSTREAM)
+    for node in onodes:
+        node.reset_neighbors(hnodes, MultiLinkNode.Side.UPSTREAM)
+    print("testing learning rate values")
+    for node in hnodes:
+        print(f"my learning rate is {node.learning_rate}")
+    print("Testing check-in")
+    try:
+        hnodes[0]._reporting_nodes[MultiLinkNode.Side.DOWNSTREAM] = 1
+        if hnodes[0]._check_in(onodes[1], MultiLinkNode.Side.DOWNSTREAM) and \
+                not hnodes[1]._check_in(onodes[1],
+                                        MultiLinkNode.Side.DOWNSTREAM):
+            print("Pass")
+        else:
+            print("Error - _check_in is not responding correctly")
+    except:
+        print("Error - _check_in is raising an error.  Is it named correctly? "
+              "Check your syntax")
+    print("Testing calculate_delta on output nodes")
+    try:
+        onodes[0]._value = .2
+        onodes[0]._calculate_delta(.5)
+        if .0479 < onodes[0].delta < .0481:
+            print("Pass")
+        else:
+            print("Error - calculate delta is not returning the correct value."
+                  "Check the math.")
+            print("        Hint: do you have a separate process for hidden "
+                  "nodes vs output nodes?")
+    except:
+        print("Error - calculate_delta is raising an error.  Is it named "
+              "correctly?  Check your syntax")
+    print("Testing calculate_delta on hidden nodes")
+    try:
+        onodes[0]._delta = .2
+        onodes[1]._delta = .1
+        onodes[0]._weights[hnodes[0]] = .4
+        onodes[1]._weights[hnodes[0]] = .6
+        hnodes[0]._value = .3
+        hnodes[0]._calculate_delta()
+        if .02939 < hnodes[0].delta < .02941:
+            print("Pass")
+        else:
+            print("Error - calculate delta is not returning the correct value.  "
+                  "Check the math.")
+            print("        Hint: do you have a separate process for hidden "
+                  "nodes vs output nodes?")
+    except:
+        print("Error - calculate_delta is raising an error.  Is it named correctly?  Check your syntax")
+    try:
+        print("Testing update_weights")
+        hnodes[0]._update_weights()
+        if onodes[0].learning_rate == .05:
+            if .4 + .06 * onodes[0].learning_rate - .001 < \
+                    onodes[0]._weights[hnodes[0]] < \
+                    .4 + .06 * onodes[0].learning_rate + .001:
+                print("Pass")
+            else:
+                print("Error - weights not updated correctly.  "
+                      "If all other methods passed, check update_weights")
+        else:
+            print("Error - Learning rate should be .05, please verify")
+    except:
+        print("Error - update_weights is raising an error.  Is it named "
+              "correctly?  Check your syntax")
+    print("All that looks good.  Trying to train a trivial dataset "
+          "on our network")
+    inodes = []
+    hnodes = []
+    onodes = []
+    for k in range(2):
+        inodes.append(FFBPNeurode(LayerType.INPUT))
+        hnodes.append(FFBPNeurode(LayerType.HIDDEN))
+        onodes.append(FFBPNeurode(LayerType.OUTPUT))
+    for node in inodes:
+        node.reset_neighbors(hnodes, MultiLinkNode.Side.DOWNSTREAM)
+    for node in hnodes:
+        node.reset_neighbors(inodes, MultiLinkNode.Side.UPSTREAM)
+        node.reset_neighbors(onodes, MultiLinkNode.Side.DOWNSTREAM)
+    for node in onodes:
+        node.reset_neighbors(hnodes, MultiLinkNode.Side.UPSTREAM)
+    inodes[0].set_input(1)
+    inodes[1].set_input(0)
+    value1 = onodes[0].value
+    value2 = onodes[1].value
+    onodes[0].set_expected(0)
+    onodes[1].set_expected(1)
+    inodes[0].set_input(1)
+    inodes[1].set_input(0)
+    value1a = onodes[0].value
+    value2a = onodes[1].value
+    if (value1 - value1a > 0) and (value2a - value2 > 0):
+        print("Pass - Learning was done!")
+    else:
+        print("Fail - the network did not make progress.")
+        print("If you hit a wall, be sure to seek help in the discussion "
+              "forum, from the instructor and from the tutors")
+
+
 if __name__ == '__main__':
-    check_point_two_test()
+    main()
 
 
-"""
-========== Sample Run ==========
-0.6739651743898595 0.6739651743898595
-"""
 
