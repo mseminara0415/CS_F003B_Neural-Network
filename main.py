@@ -537,6 +537,8 @@ class BPNeurode(Neurode):
         :param expected_value:
         :return:
         """
+
+        # Will have to use get_weight()
         if self._node_type == LayerType.OUTPUT:
             delta = 0
         elif self._node_type == LayerType.HIDDEN:
@@ -557,6 +559,7 @@ class BPNeurode(Neurode):
         if self._check_in(node, side=MultiLinkNode.Side.DOWNSTREAM):
             self._calculate_delta()
             self._fire_upstream()
+            self._update_weights()
 
     def set_expected(self, expected_value):
         """
