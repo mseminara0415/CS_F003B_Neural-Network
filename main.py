@@ -533,20 +533,22 @@ class BPNeurode(Neurode):
     def _calculate_delta(self, expected_value=None):
         """
         Calculate the delta between the node value and the expected Value. If
-        node type is of 'Output' then calculate 1st way. Else calculate another way.
+        node type is of 'Output' then calculate 1st way. Else
+        calculate another way. TESTING.
         :param expected_value:
         :return:
         """
 
         # Will have to use get_weight()
         if self._node_type == LayerType.OUTPUT:
-            delta = 0
+            self._delta = (expected_value -
+                           self.value)*self._sigmoid_derivative(self.value)
         elif self._node_type == LayerType.HIDDEN:
-            delta = 0
+            weighted_sum_down_stream = 0
+            for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+                pass
         else:
             delta = 0
-
-        self._delta = delta
 
     def data_ready_downstream(self, node):
         """
@@ -872,6 +874,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
