@@ -533,7 +533,8 @@ class BPNeurode(Neurode):
     def _calculate_delta(self, expected_value=None):
         """
         Calculate the delta between the node value and the expected Value. If
-        node type is of 'Output' then calculate 1st way. Else calculate another way.
+        node type is of 'Output' then calculate 1st way. Else
+        calculate another way. TESTING.
         :param expected_value:
         :return:
         """
