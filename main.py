@@ -533,18 +533,30 @@ class BPNeurode(Neurode):
     def _calculate_delta(self, expected_value=None):
         """
         Calculate the delta between the node value and the expected Value. If
-        node type is of 'Output' then calculate 1st way. Else calculate another way.
+        node type is of 'Output' then calculate 1st way. Else
+        calculate another way. TESTING.
         :param expected_value:
         :return:
         """
-        if self._node_type == LayerType.OUTPUT:
-            delta = 0
-        elif self._node_type == LayerType.HIDDEN:
-            delta = 0
-        else:
-            delta = 0
 
-        self._delta = delta
+        # Calculate delta for Output nodes
+        if self._node_type == LayerType.OUTPUT:
+            self._delta = (expected_value -
+                           self.value)*self._sigmoid_derivative(self.value)
+
+        # Calculate delta for hidden/input nodes
+        else:
+            weighted_downstream_deltas = []
+
+            # Loop downstream nodes to get weighted downstream delta
+            for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+                weighted_delta = node.get_weight(self)*node.delta
+                weighted_downstream_deltas.append(weighted_delta)
+
+            # Sum weighted deltas and set self._delta to value
+            weighted_sum_downstream_deltas = sum(weighted_downstream_deltas)
+            hidden_delta = weighted_sum_downstream_deltas*self._sigmoid_derivative(self.value)
+            self._delta = hidden_delta
 
     def data_ready_downstream(self, node):
         """
@@ -557,6 +569,7 @@ class BPNeurode(Neurode):
         if self._check_in(node, side=MultiLinkNode.Side.DOWNSTREAM):
             self._calculate_delta()
             self._fire_upstream()
+            self._update_weights()
 
     def set_expected(self, expected_value):
         """
@@ -564,10 +577,10 @@ class BPNeurode(Neurode):
         :param expected_value:
         :return:
         """
-        if self.node_type == LayerType.OUTPUT:
-            self._calculate_delta(expected_value)
-            for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
-                node.data_ready_downstream(self)
+        self._calculate_delta(expected_value=expected_value)
+
+        for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
+            node.data_ready_downstream(node=self)
 
     def adjust_weights(self, node, adjustment):
         """
@@ -588,7 +601,12 @@ class BPNeurode(Neurode):
 
         # Loop through downstream neighbors and use method 'adjust_weights'
         for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-            pass
+            value_upstream_node = self.value
+            downstream_delta = node.delta
+            downstream_learning_rate = node.learning_rate
+            weight = node.get_weight(self)
+            adjustment = weight + value_upstream_node*downstream_delta*downstream_learning_rate
+            node.adjust_weights(node=self, adjustment=adjustment)
 
     def _fire_upstream(self):
         """
@@ -597,7 +615,7 @@ class BPNeurode(Neurode):
         :return:
         """
 
-        for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+        for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
             node.data_ready_downstream(self)
 
 
@@ -869,6 +887,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
