@@ -539,16 +539,24 @@ class BPNeurode(Neurode):
         :return:
         """
 
-        # Will have to use get_weight()
+        # Calculate delta for Output nodes
         if self._node_type == LayerType.OUTPUT:
             self._delta = (expected_value -
                            self.value)*self._sigmoid_derivative(self.value)
-        elif self._node_type == LayerType.HIDDEN:
-            weighted_sum_down_stream = 0
-            for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-                pass
+
+        # Calculate delta for hidden/input nodes
         else:
-            delta = 0
+            weighted_downstream_deltas = []
+
+            # Loop downstream nodes to get weighted downstream delta
+            for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+                weighted_delta = node.get_weight(self)*node.delta
+                weighted_downstream_deltas.append(weighted_delta)
+
+            # Sum weighted deltas and set self._delta to value
+            weighted_sum_downstream_deltas = sum(weighted_downstream_deltas)
+            hidden_delta = weighted_sum_downstream_deltas*self._sigmoid_derivative(self.value)
+            self._delta = hidden_delta
 
     def data_ready_downstream(self, node):
         """
@@ -569,10 +577,10 @@ class BPNeurode(Neurode):
         :param expected_value:
         :return:
         """
-        if self.node_type == LayerType.OUTPUT:
-            self._calculate_delta(expected_value)
-            for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
-                node.data_ready_downstream(self)
+        self._calculate_delta(expected_value=expected_value)
+
+        for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
+            node.data_ready_downstream(node=self)
 
     def adjust_weights(self, node, adjustment):
         """
@@ -593,7 +601,12 @@ class BPNeurode(Neurode):
 
         # Loop through downstream neighbors and use method 'adjust_weights'
         for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-            pass
+            value_upstream_node = self.value
+            downstream_delta = node.delta
+            downstream_learning_rate = node.learning_rate
+            weight = node.get_weight(self)
+            adjustment = weight + value_upstream_node*downstream_delta*downstream_learning_rate
+            node.adjust_weights(node=self, adjustment=adjustment)
 
     def _fire_upstream(self):
         """
@@ -602,7 +615,7 @@ class BPNeurode(Neurode):
         :return:
         """
 
-        for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+        for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
             node.data_ready_downstream(self)
 
 
