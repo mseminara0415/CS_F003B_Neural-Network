@@ -632,6 +632,7 @@ class BPNeurode(Neurode):
 class FFBPNeurode(FFNeurode, BPNeurode):
     pass
 
+
 class Node:
     def __init__(self, data):
         self.data = data
