@@ -638,13 +638,14 @@ class Node:
         self.next = None
         self.prev = None
 
+
 class DoublyLinkedList:
     def __init__(self):
         self.head = None
         self._curr = None
 
     def move_forward(self):
-        if self._curr is None
+        if self._curr is None:
             return None
         else:
             self._curr = self._curr.next
