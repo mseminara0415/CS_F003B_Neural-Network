@@ -21,6 +21,16 @@ class DataMismatchError(Exception):
         self.message = message
 
 
+class EmptyListError(Exception):
+    """
+    This custom exception is raised if our list is empty.
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
+
 class NNData:
     class Order(Enum):
         """
@@ -621,6 +631,96 @@ class BPNeurode(Neurode):
 
 class FFBPNeurode(FFNeurode, BPNeurode):
     pass
+
+class Node:
+    def __init__(self, data):
+        self.data = data
+        self.next = None
+        self.prev = None
+
+class DoublyLinkedList:
+    def __init__(self):
+        self.head = None
+        self._curr = None
+
+    def move_forward(self):
+        if self._curr is None
+            return None
+        else:
+            self._curr = self._curr.next
+
+        if self._curr is None:
+            return None
+        else:
+            return self._curr.data
+
+    def move_back(self):
+        pass
+
+    def reset_to_head(self):
+        """
+        Reset node to head node.
+        :return:
+        """
+        self._curr = self.head
+        if self._curr is None:
+            return None
+        else:
+            return self._curr.data
+
+    def reset_to_tail(self):
+        pass
+
+    def add_to_head(self, data):
+        """
+        insert item at the beginning of the doubly linked list.
+        :param data:
+        :return:
+        """
+
+        # If there the list is empty
+        if self.head is None:
+            new_node = Node(data)
+            self.head = new_node
+            return
+
+        # If the list is not empty
+        new_node = Node(data)
+        new_node.next = self.head
+        self.head.prev = new_node
+        self.head = new_node
+        self.reset_to_head()
+
+    def add_after_cur(self, data):
+        if self.head is None:
+            raise EmptyListError
+        else:
+            node = self
+
+    def remove_from_head(self):
+        if self.head is None:
+            raise EmptyListError("The list is empty.")
+        if self.head.next is None:
+            self.head = None
+            return
+        self.head = self.head.next
+        self.reset_to_head()
+
+    def remove_after_cur(self):
+        pass
+
+    def get_current_data(self):
+        pass
+
+
+
+
+
+class LayerList:
+    pass
+
+
+
 
 
 def load_xor():
