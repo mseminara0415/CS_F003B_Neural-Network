@@ -20,17 +20,6 @@ class DataMismatchError(Exception):
     def __init__(self, message):
         self.message = message
 
-
-class EmptyListError(Exception):
-    """
-    This custom exception is raised if our list is empty.
-    """
-
-    def __init__(self, message):
-        self.message = message
-
-
-
 class NNData:
     class Order(Enum):
         """
@@ -641,9 +630,19 @@ class Node:
 
 
 class DoublyLinkedList:
+
+    class EmptyListError(Exception):
+        """
+        This custom exception is raised if our list is empty.
+        """
+
+        def __init__(self, message):
+            self.message = message
+
     def __init__(self):
-        self.head = None
+        self._head = None
         self._curr = None
+        self._prev = None
 
     def move_forward(self):
         if self._curr is None:
@@ -664,7 +663,7 @@ class DoublyLinkedList:
         Reset node to head node.
         :return:
         """
-        self._curr = self.head
+        self._curr = self._head
         if self._curr is None:
             return None
         else:
@@ -679,50 +678,46 @@ class DoublyLinkedList:
         :param data:
         :return:
         """
-
-        # If there the list is empty
-        if self.head is None:
-            new_node = Node(data)
-            self.head = new_node
-            return
-
-        # If the list is not empty
         new_node = Node(data)
-        new_node.next = self.head
-        self.head.prev = new_node
-        self.head = new_node
+        new_node.next = self._head
+        self._head = new_node
         self.reset_to_head()
 
     def add_after_cur(self, data):
-        if self.head is None:
-            raise EmptyListError
-        else:
-            node = self
+        if self._curr is None:
+            self.add_to_head(data)
+            return
+        new_node = Node(data)
+        new_node.next = self._curr.next
+        self._curr.next = new_node
 
     def remove_from_head(self):
-        if self.head is None:
-            raise EmptyListError("The list is empty.")
-        if self.head.next is None:
-            self.head = None
-            return
-        self.head = self.head.next
+        if self._head is None:
+            return None
+        ret_val = self._head.data
+        self._head = self._head.next
         self.reset_to_head()
+        return ret_val
 
     def remove_after_cur(self):
-        pass
+        if self._curr is None or self._curr.next is None:
+            return None
+        ret_val = self._curr.next.data
+        self._curr = self._curr.next.next
+        return ret_val
 
     def get_current_data(self):
-        pass
-
-
-
+        if self._head is None:
+            raise DoublyLinkedList.EmptyListError("This is an empty list.")
+        else:
+            if self._curr is None:
+                raise DoublyLinkedList.EmptyListError("This is an empty list.")
+            else:
+                return self._curr.data
 
 
 class LayerList:
     pass
-
-
-
 
 
 def load_xor():
@@ -739,253 +734,65 @@ def load_xor():
                              train_factor=1)
 
 
-def check_point_one_test():
-    # Mock up a network with three inputs and three outputs
-
-    inputs = [Neurode(LayerType.INPUT) for _ in range(3)]
-    outputs = [Neurode(LayerType.OUTPUT, .01) for _ in range(3)]
-    if not inputs[0]._reference_value[MultiLinkNode.Side.DOWNSTREAM] == 0:
-        print("Fail - Initial reference value is not zero")
-    for node in inputs:
-        node.reset_neighbors(outputs, MultiLinkNode.Side.DOWNSTREAM)
-    for node in outputs:
-        node.reset_neighbors(inputs, MultiLinkNode.Side.UPSTREAM)
-    if not inputs[0]._reference_value[MultiLinkNode.Side.DOWNSTREAM] == 7:
-        print("Fail - Final reference value is not correct")
-    if not inputs[0]._reference_value[MultiLinkNode.Side.UPSTREAM] == 0:
-        print("Fail - Final reference value is not correct")
-
-    # Report data ready from each input and make sure _check_in
-    # only reports True when all nodes have reported
-
-    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 0:
-        print("Fail - Initial reporting value is not zero")
-    if outputs[0]._check_in(inputs[0], MultiLinkNode.Side.UPSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in")
-    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 1:
-        print("Fail - reporting value is not correct")
-    if outputs[0]._check_in(inputs[2], MultiLinkNode.Side.UPSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in")
-    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 5:
-        print("Fail - reporting value is not correct")
-    if outputs[0]._check_in(inputs[2], MultiLinkNode.Side.UPSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in (double fire)")
-    if not outputs[0]._reporting_nodes[MultiLinkNode.Side.UPSTREAM] == 5:
-        print("Fail - reporting value is not correct")
-    if not outputs[0]._check_in(inputs[1], MultiLinkNode.Side.UPSTREAM):
-        print("Fail - _check_in returned False after all nodes were"
-              "checked in")
-
-    # Report data ready from each output and make sure _check_in
-    # only reports True when all nodes have reported
-
-    if inputs[1]._check_in(outputs[0], MultiLinkNode.Side.DOWNSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in")
-    if inputs[1]._check_in(outputs[2], MultiLinkNode.Side.DOWNSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in")
-    if inputs[1]._check_in(outputs[0], MultiLinkNode.Side.DOWNSTREAM):
-        print("Fail - _check_in returned True but not all nodes were"
-              "checked in (double fire)")
-    if not inputs[1]._check_in(outputs[1], MultiLinkNode.Side.DOWNSTREAM):
-        print("Fail - _check_in returned False after all nodes were"
-              "checked in output")
-
-    # Check that learning rates were set correctly
-
-    if not inputs[0].learning_rate == .05:
-        print("Fail - default learning rate was not set")
-    if not outputs[0].learning_rate == .01:
-        print("Fail - specified learning rate was not set")
-
-    # Check that weights appear random
-
-    weight_list = list()
-    for node in outputs:
-        for t_node in inputs:
-            if node.get_weight(t_node) in weight_list:
-                print("Fail - weights do not appear to be set up properly")
-            weight_list.append(node.get_weight(t_node))
-
-
-def check_point_two_test():
-    inodes = []
-    hnodes = []
-    onodes = []
-    for k in range(2):
-        inodes.append(FFNeurode(LayerType.INPUT))
-    for k in range(2):
-        hnodes.append(FFNeurode(LayerType.HIDDEN))
-    onodes.append(FFNeurode(LayerType.OUTPUT))
-    for node in inodes:
-        node.reset_neighbors(hnodes, MultiLinkNode.Side.DOWNSTREAM)
-    for node in hnodes:
-        node.reset_neighbors(inodes, MultiLinkNode.Side.UPSTREAM)
-        node.reset_neighbors(onodes, MultiLinkNode.Side.DOWNSTREAM)
-    for node in onodes:
-        node.reset_neighbors(hnodes, MultiLinkNode.Side.UPSTREAM)
+def dll_test():
+    my_list = DoublyLinkedList()
     try:
-        inodes[1].set_input(1)
-        assert onodes[0].value == 0
-    except:
-        print("Error: Neurodes may be firing before receiving all input")
-    inodes[0].set_input(0)
-
-    # Since input node 0 has value of 0 and input node 1 has value of
-    # one, the value of the hidden layers should be the sigmoid of the
-    # weight out of input node 1.
-
-    value_0 = (1 / (1 + np.exp(-hnodes[0]._weights[inodes[1]])))
-    value_1 = (1 / (1 + np.exp(-hnodes[1]._weights[inodes[1]])))
-    inter = onodes[0]._weights[hnodes[0]] * value_0 + \
-            onodes[0]._weights[hnodes[1]] * value_1
-    final = (1 / (1 + np.exp(-inter)))
-    try:
-        print(final, onodes[0].value)
-        assert final == onodes[0].value
-        assert 0 < final < 1
-    except:
-        print("Error: Calculation of neurode value may be incorrect")
-
-
-def main():
-    try:
-        test_neurode = BPNeurode(LayerType.HIDDEN)
-    except:
-        print("Error - Cannot instaniate a BPNeurode object")
-        return
-    print("Testing Sigmoid Derivative")
-    try:
-        assert BPNeurode._sigmoid_derivative(0) == 0
-        if test_neurode._sigmoid_derivative(.4) == .24:
-            print("Pass")
-        else:
-            print("_sigmoid_derivative is not returning the correct "
-                  "result")
-    except:
-        print("Error - Is _sigmoid_derivative named correctly, created "
-              "in BPNeurode and decorated as a static method?")
-    print("Testing Instance objects")
-    try:
-        test_neurode.learning_rate
-        test_neurode.delta
+        my_list.get_current_data()
+    except DoublyLinkedList.EmptyListError:
         print("Pass")
-    except:
-        print("Error - Are all instance objects created in __init__()?")
-
-    inodes = []
-    hnodes = []
-    onodes = []
-    for k in range(2):
-        inodes.append(FFBPNeurode(LayerType.INPUT))
-        hnodes.append(FFBPNeurode(LayerType.HIDDEN))
-        onodes.append(FFBPNeurode(LayerType.OUTPUT))
-    for node in inodes:
-        node.reset_neighbors(hnodes, MultiLinkNode.Side.DOWNSTREAM)
-    for node in hnodes:
-        node.reset_neighbors(inodes, MultiLinkNode.Side.UPSTREAM)
-        node.reset_neighbors(onodes, MultiLinkNode.Side.DOWNSTREAM)
-    for node in onodes:
-        node.reset_neighbors(hnodes, MultiLinkNode.Side.UPSTREAM)
-    print("testing learning rate values")
-    for node in hnodes:
-        print(f"my learning rate is {node.learning_rate}")
-    print("Testing check-in")
-    try:
-        hnodes[0]._reporting_nodes[MultiLinkNode.Side.DOWNSTREAM] = 1
-        if hnodes[0]._check_in(onodes[1], MultiLinkNode.Side.DOWNSTREAM) and \
-                not hnodes[1]._check_in(onodes[1],
-                                        MultiLinkNode.Side.DOWNSTREAM):
-            print("Pass")
-        else:
-            print("Error - _check_in is not responding correctly")
-    except:
-        print("Error - _check_in is raising an error.  Is it named correctly? "
-              "Check your syntax")
-    print("Testing calculate_delta on output nodes")
-    try:
-        onodes[0]._value = .2
-        onodes[0]._calculate_delta(.5)
-        if .0479 < onodes[0].delta < .0481:
-            print("Pass")
-        else:
-            print("Error - calculate delta is not returning the correct value."
-                  "Check the math.")
-            print("        Hint: do you have a separate process for hidden "
-                  "nodes vs output nodes?")
-    except:
-        print("Error - calculate_delta is raising an error.  Is it named "
-              "correctly?  Check your syntax")
-    print("Testing calculate_delta on hidden nodes")
-    try:
-        onodes[0]._delta = .2
-        onodes[1]._delta = .1
-        onodes[0]._weights[hnodes[0]] = .4
-        onodes[1]._weights[hnodes[0]] = .6
-        hnodes[0]._value = .3
-        hnodes[0]._calculate_delta()
-        if .02939 < hnodes[0].delta < .02941:
-            print("Pass")
-        else:
-            print("Error - calculate delta is not returning the correct value.  "
-                  "Check the math.")
-            print("        Hint: do you have a separate process for hidden "
-                  "nodes vs output nodes?")
-    except:
-        print("Error - calculate_delta is raising an error.  Is it named correctly?  Check your syntax")
-    try:
-        print("Testing update_weights")
-        hnodes[0]._update_weights()
-        if onodes[0].learning_rate == .05:
-            if .4 + .06 * onodes[0].learning_rate - .001 < \
-                    onodes[0]._weights[hnodes[0]] < \
-                    .4 + .06 * onodes[0].learning_rate + .001:
-                print("Pass")
-            else:
-                print("Error - weights not updated correctly.  "
-                      "If all other methods passed, check update_weights")
-        else:
-            print("Error - Learning rate should be .05, please verify")
-    except:
-        print("Error - update_weights is raising an error.  Is it named "
-              "correctly?  Check your syntax")
-    print("All that looks good.  Trying to train a trivial dataset "
-          "on our network")
-    inodes = []
-    hnodes = []
-    onodes = []
-    for k in range(2):
-        inodes.append(FFBPNeurode(LayerType.INPUT))
-        hnodes.append(FFBPNeurode(LayerType.HIDDEN))
-        onodes.append(FFBPNeurode(LayerType.OUTPUT))
-    for node in inodes:
-        node.reset_neighbors(hnodes, MultiLinkNode.Side.DOWNSTREAM)
-    for node in hnodes:
-        node.reset_neighbors(inodes, MultiLinkNode.Side.UPSTREAM)
-        node.reset_neighbors(onodes, MultiLinkNode.Side.DOWNSTREAM)
-    for node in onodes:
-        node.reset_neighbors(hnodes, MultiLinkNode.Side.UPSTREAM)
-    inodes[0].set_input(1)
-    inodes[1].set_input(0)
-    value1 = onodes[0].value
-    value2 = onodes[1].value
-    onodes[0].set_expected(0)
-    onodes[1].set_expected(1)
-    inodes[0].set_input(1)
-    inodes[1].set_input(0)
-    value1a = onodes[0].value
-    value2a = onodes[1].value
-    if (value1 - value1a > 0) and (value2a - value2 > 0):
-        print("Pass - Learning was done!")
     else:
-        print("Fail - the network did not make progress.")
-        print("If you hit a wall, be sure to seek help in the discussion "
-              "forum, from the instructor and from the tutors")
+        print("Fail 1")
+
+
+    for a in range(3):
+        my_list.add_to_head(a)
+    if my_list.get_current_data() != 2:
+        print("Error")
+
+    my_list.move_forward()
+    if my_list.get_current_data() != 1:
+        print("Fail 2")
+    my_list.move_forward()
+
+
+    try:
+        my_list.move_forward()
+    except IndexError:
+        print("Pass")
+    else:
+        print("Fail 3")
+    if my_list.get_current_data() != 0:
+        print("Fail 4")
+    my_list.move_back()
+    my_list.remove_after_cur()
+    if my_list.get_current_data() != 1:
+        print("Fail 5")
+    my_list.move_back()
+    if my_list.get_current_data() != 2:
+        print("Fail")
+    try:
+        my_list.move_back()
+    except IndexError:
+        print("Pass")
+    else:
+        print("Fail 6")
+    my_list.move_forward()
+    if my_list.get_current_data() != 1:
+        print("Fail 7")
+
+
+def testing():
+    my_list = DoublyLinkedList()
+    for a in range(3):
+        print(a)
+        my_list.add_to_head(a)
+    print(my_list.get_current_data())
+    my_list.move_forward()
+    print(my_list.get_current_data())
+    print(my_list.get_current_data())
+    print(my_list.get_current_data())
 
 
 if __name__ == '__main__':
-    main()
+    dll_test()
+
