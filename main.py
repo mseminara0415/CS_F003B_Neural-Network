@@ -650,9 +650,7 @@ class DoublyLinkedList:
         if self._curr is None:
             return None
         else:
-            prev_val = self._curr
             self._curr = self._curr.next
-            self._curr.prev = prev_val
 
         if self._curr is None:
             return None
@@ -660,10 +658,17 @@ class DoublyLinkedList:
             return self._curr.data
 
     def move_back(self):
+        if self._curr.prev is None:
+            raise IndexError
         if self._curr is None:
             return None
         else:
-            return self._curr.prev.data
+            self._curr = self._curr.prev
+
+        if self._curr is None:
+            return None
+        else:
+            return self._curr.data
 
     def reset_to_head(self):
         """
@@ -691,8 +696,8 @@ class DoublyLinkedList:
             self._head = new_node
             self._tail = new_node
         else:
-
             new_node = Node(data)
+            self._head.prev = new_node
             new_node.next = self._head
             self._head = new_node
             new_node.prev = None
@@ -781,7 +786,8 @@ def dll_test():
         print("Pass")
     my_list.move_back()
     print(my_list.move_back())
-    # my_list.remove_after_cur()
+    my_list.remove_after_cur()
+    print(my_list.get_current_data())
     # if my_list.get_current_data() != 1:
     #     print("Fail 5")
     # my_list.move_back()
@@ -803,15 +809,19 @@ def testing():
     my_list.add_to_head(0)
     my_list.add_to_head(1)
     my_list.add_to_head(2)
+    my_list.add_to_head(3)
     print(my_list.get_current_data())
     my_list.move_forward()
     print(my_list.get_current_data())
     my_list.move_forward()
     print(my_list.get_current_data())
+    my_list.move_forward()
+    print(my_list.get_current_data())
+    print(my_list.move_back())
     print(my_list.move_back())
     print(my_list.move_back())
 
 
 if __name__ == '__main__':
-    testing()
+    dll_test()
 
