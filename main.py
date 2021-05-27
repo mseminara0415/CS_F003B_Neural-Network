@@ -642,13 +642,17 @@ class DoublyLinkedList:
     def __init__(self):
         self._head = None
         self._curr = None
-        self._prev = None
+        self._tail = None
 
     def move_forward(self):
+        if self._curr.next is None:
+            raise IndexError
         if self._curr is None:
             return None
         else:
+            prev_val = self._curr
             self._curr = self._curr.next
+            self._curr.prev = prev_val
 
         if self._curr is None:
             return None
@@ -656,7 +660,10 @@ class DoublyLinkedList:
             return self._curr.data
 
     def move_back(self):
-        pass
+        if self._curr is None:
+            return None
+        else:
+            return self._curr.prev.data
 
     def reset_to_head(self):
         """
@@ -678,10 +685,18 @@ class DoublyLinkedList:
         :param data:
         :return:
         """
-        new_node = Node(data)
-        new_node.next = self._head
-        self._head = new_node
-        self.reset_to_head()
+        if self._head is None:
+            new_node = Node(data)
+            new_node.prev = None
+            self._head = new_node
+            self._tail = new_node
+        else:
+
+            new_node = Node(data)
+            new_node.next = self._head
+            self._head = new_node
+            new_node.prev = None
+            self.reset_to_head()
 
     def add_after_cur(self, data):
         if self._curr is None:
@@ -696,6 +711,7 @@ class DoublyLinkedList:
             return None
         ret_val = self._head.data
         self._head = self._head.next
+
         self.reset_to_head()
         return ret_val
 
@@ -711,7 +727,7 @@ class DoublyLinkedList:
             raise DoublyLinkedList.EmptyListError("This is an empty list.")
         else:
             if self._curr is None:
-                raise DoublyLinkedList.EmptyListError("This is an empty list.")
+                return None
             else:
                 return self._curr.data
 
@@ -743,7 +759,6 @@ def dll_test():
     else:
         print("Fail 1")
 
-
     for a in range(3):
         my_list.add_to_head(a)
     if my_list.get_current_data() != 2:
@@ -754,7 +769,6 @@ def dll_test():
         print("Fail 2")
     my_list.move_forward()
 
-
     try:
         my_list.move_forward()
     except IndexError:
@@ -763,36 +777,41 @@ def dll_test():
         print("Fail 3")
     if my_list.get_current_data() != 0:
         print("Fail 4")
-    my_list.move_back()
-    my_list.remove_after_cur()
-    if my_list.get_current_data() != 1:
-        print("Fail 5")
-    my_list.move_back()
-    if my_list.get_current_data() != 2:
-        print("Fail")
-    try:
-        my_list.move_back()
-    except IndexError:
-        print("Pass")
     else:
-        print("Fail 6")
-    my_list.move_forward()
-    if my_list.get_current_data() != 1:
-        print("Fail 7")
+        print("Pass")
+    my_list.move_back()
+    print(my_list.move_back())
+    # my_list.remove_after_cur()
+    # if my_list.get_current_data() != 1:
+    #     print("Fail 5")
+    # my_list.move_back()
+    # if my_list.get_current_data() != 2:
+    #     print("Fail")
+    # try:
+    #     my_list.move_back()
+    # except IndexError:
+    #     print("Pass")
+    # else:
+    #     print("Fail 6")
+    # my_list.move_forward()
+    # if my_list.get_current_data() != 1:
+    #     print("Fail 7")
 
 
 def testing():
     my_list = DoublyLinkedList()
-    for a in range(3):
-        print(a)
-        my_list.add_to_head(a)
+    my_list.add_to_head(0)
+    my_list.add_to_head(1)
+    my_list.add_to_head(2)
     print(my_list.get_current_data())
     my_list.move_forward()
     print(my_list.get_current_data())
+    my_list.move_forward()
     print(my_list.get_current_data())
-    print(my_list.get_current_data())
+    print(my_list.move_back())
+    print(my_list.move_back())
 
 
 if __name__ == '__main__':
-    dll_test()
+    testing()
 
