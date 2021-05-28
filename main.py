@@ -645,6 +645,10 @@ class DoublyLinkedList:
         self._tail = None
 
     def move_forward(self):
+        """
+        Move forward one position in list.
+        :return:
+        """
         if self._curr.next is None:
             raise IndexError
         if self._curr is None:
@@ -658,6 +662,10 @@ class DoublyLinkedList:
             return self._curr.data
 
     def move_back(self):
+        """
+        Move back one position in list.
+        :return:
+        """
         if self._curr.prev is None:
             raise IndexError
         if self._curr is None:
@@ -682,6 +690,10 @@ class DoublyLinkedList:
             return self._curr.data
 
     def reset_to_tail(self):
+        """
+        Reset current node to equal tail node.
+        :return:
+        """
         self._curr = self._tail
         if self._curr is None:
             return None
