@@ -682,7 +682,11 @@ class DoublyLinkedList:
             return self._curr.data
 
     def reset_to_tail(self):
-        pass
+        self._curr = self._tail
+        if self._curr is None:
+            return None
+        else:
+            return self._curr.data
 
     def add_to_head(self, data):
         """
@@ -704,14 +708,24 @@ class DoublyLinkedList:
             self.reset_to_head()
 
     def add_after_cur(self, data):
+        """
+        Add node after current node
+        :param data:
+        :return:
+        """
         if self._curr is None:
             self.add_to_head(data)
             return
         new_node = Node(data)
+        self._curr.prev = new_node
         new_node.next = self._curr.next
         self._curr.next = new_node
 
     def remove_from_head(self):
+        """
+        Remove node at head of list.
+        :return:
+        """
         if self._head is None:
             return None
         ret_val = self._head.data
@@ -721,13 +735,24 @@ class DoublyLinkedList:
         return ret_val
 
     def remove_after_cur(self):
+        """
+        Remove node after current node. DONE
+        :return:
+        """
+        if self._curr == self._tail:
+            raise IndexError
+
         if self._curr is None or self._curr.next is None:
             return None
-        ret_val = self._curr.next.data
-        self._curr = self._curr.next.next
-        return ret_val
+        new_val = self._curr.next.next
+        self._curr.next = new_val
+        return self._curr
 
     def get_current_data(self):
+        """
+        Get current node's data. DONE
+        :return:
+        """
         if self._head is None:
             raise DoublyLinkedList.EmptyListError("This is an empty list.")
         else:
@@ -762,46 +787,39 @@ def dll_test():
     except DoublyLinkedList.EmptyListError:
         print("Pass")
     else:
-        print("Fail 1")
-
+        print("Fail")
     for a in range(3):
         my_list.add_to_head(a)
     if my_list.get_current_data() != 2:
         print("Error")
-
     my_list.move_forward()
     if my_list.get_current_data() != 1:
-        print("Fail 2")
+        print("Fail")
     my_list.move_forward()
-
     try:
         my_list.move_forward()
     except IndexError:
         print("Pass")
     else:
-        print("Fail 3")
+        print("Fail")
     if my_list.get_current_data() != 0:
-        print("Fail 4")
-    else:
-        print("Pass")
+        print("Fail")
     my_list.move_back()
-    print(my_list.move_back())
     my_list.remove_after_cur()
-    print(my_list.get_current_data())
-    # if my_list.get_current_data() != 1:
-    #     print("Fail 5")
-    # my_list.move_back()
-    # if my_list.get_current_data() != 2:
-    #     print("Fail")
-    # try:
-    #     my_list.move_back()
-    # except IndexError:
-    #     print("Pass")
-    # else:
-    #     print("Fail 6")
-    # my_list.move_forward()
-    # if my_list.get_current_data() != 1:
-    #     print("Fail 7")
+    if my_list.get_current_data() != 1:
+        print("Fail")
+    my_list.move_back()
+    if my_list.get_current_data() != 2:
+        print("Fail")
+    try:
+        my_list.move_back()
+    except IndexError:
+        print("Pass")
+    else:
+        print("Fail")
+    my_list.move_forward()
+    if my_list.get_current_data() != 1:
+        print("Fail")
 
 
 def testing():
@@ -809,19 +827,18 @@ def testing():
     my_list.add_to_head(0)
     my_list.add_to_head(1)
     my_list.add_to_head(2)
-    my_list.add_to_head(3)
+    my_list.add_after_cur(6)
     print(my_list.get_current_data())
-    my_list.move_forward()
-    print(my_list.get_current_data())
-    my_list.move_forward()
-    print(my_list.get_current_data())
-    my_list.move_forward()
-    print(my_list.get_current_data())
-    print(my_list.move_back())
-    print(my_list.move_back())
-    print(my_list.move_back())
+    print(my_list.move_forward())
+    print(my_list.move_forward())
+    # print(my_list.move_forward())
+    # print(my_list.move_back())
+    # print(my_list.move_back())
+    # print(my_list.move_back())
+
+
 
 
 if __name__ == '__main__':
-    dll_test()
+    testing()
 
