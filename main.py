@@ -711,6 +711,7 @@ class DoublyLinkedList:
             new_node.prev = None
             self._head = new_node
             self._tail = new_node
+            self.reset_to_head()
         else:
             new_node = Node(data)
             self._head.prev = new_node
@@ -721,17 +722,30 @@ class DoublyLinkedList:
 
     def add_after_cur(self, data):
         """
-        Add node after current node
+        Add node after current node.
         :param data:
         :return:
         """
+        new_node = Node(data)
+
         if self._curr is None:
             self.add_to_head(data)
             return
-        new_node = Node(data)
-        self._curr.prev = new_node
-        new_node.next = self._curr.next
-        self._curr.next = new_node
+
+        # if current node is the tail
+        if self._curr.next is None:
+            new_node.prev = self._curr
+            self._curr.next = new_node
+            new_node.next = None
+            self._tail = new_node
+
+        # adding somewhere in the middle of the list
+        else:
+            stored_next = self._curr.next
+            self._curr.next = new_node
+            new_node.prev = self._curr
+            new_node.next = stored_next
+            stored_next.prev = new_node
 
     def remove_from_head(self):
         """
@@ -774,8 +788,9 @@ class DoublyLinkedList:
                 return self._curr.data
 
 
-class LayerList:
-    pass
+class LayerList(DoublyLinkedList):
+    def __init__(self, inputs: int, outputs: int):
+        pass
 
 
 def load_xor():
@@ -837,20 +852,13 @@ def dll_test():
 def testing():
     my_list = DoublyLinkedList()
     my_list.add_to_head(0)
-    my_list.add_to_head(1)
-    my_list.add_to_head(2)
-    my_list.add_after_cur(6)
-    print(my_list.get_current_data())
-    print(my_list.move_forward())
-    print(my_list.move_forward())
+    my_list.add_after_cur(50)
+    # print(my_list.reset_to_head())
     # print(my_list.move_forward())
     # print(my_list.move_back())
     # print(my_list.move_back())
     # print(my_list.move_back())
 
-
-
-
 if __name__ == '__main__':
-    testing()
+    dll_test()
 
