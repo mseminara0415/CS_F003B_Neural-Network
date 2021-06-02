@@ -790,7 +790,7 @@ class DoublyLinkedList:
 
 class LayerList(DoublyLinkedList):
     """
-    Extenstion from Doubly Linked List.
+    Extension from Doubly Linked List.
     """
     def __init__(self, inputs: int, outputs: int):
         self.inputs = inputs
