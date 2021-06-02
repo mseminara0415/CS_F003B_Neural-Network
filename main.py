@@ -787,7 +787,6 @@ class DoublyLinkedList:
             else:
                 return self._curr.data
 
-
 class LayerList(DoublyLinkedList):
     def __init__(self, inputs: int, outputs: int):
         self.inputs = inputs
