@@ -790,7 +790,58 @@ class DoublyLinkedList:
 
 class LayerList(DoublyLinkedList):
     def __init__(self, inputs: int, outputs: int):
+        self.inputs = inputs
+        self.outputs = outputs
+        super().__init__()
+
+        # Create List of Input and Output neurodes
+        self.input_neurodes = [FFBPNeurode(LayerType.INPUT)
+                               for _ in range(self.inputs)]
+        self.output_neurodes = [FFBPNeurode(LayerType.OUTPUT)
+                                for _ in range(self.outputs)]
+
+        # Link the two layers together
+        for node in self.input_neurodes:
+            node.reset_neighbors(self.output_neurodes, MultiLinkNode.Side.DOWNSTREAM)
+        for node in self.output_neurodes:
+            node.reset_neighbors(self.input_neurodes, MultiLinkNode.Side.UPSTREAM)
+
+        # Add input and output neurodes to Doubly Linked List
+        self.add_to_head(self.input_neurodes)
+        self.add_after_cur(self.output_neurodes)
+
+    def add_layer(self, num_nodes: int):
+        """
+        Add hidden layer of neurodes after the current layer.
+        :param num_nodes: number of hidden neurodes in layer.
+        :return:
+        """
+
+        # call add after cur in method
         pass
+
+    def remove_layer(self):
+        """
+        Remove the layer AFTER the current layer.
+        :return:
+        """
+        pass
+
+    @property
+    def input_nodes(self):
+        """
+        Return a list of input layer neurodes.
+        :return:
+        """
+        return self._head.data
+
+    @property
+    def output_nodes(self):
+        """
+        Return a list of output layer neurodes.
+        :return:
+        """
+        return self._tail.data
 
 
 def load_xor():
@@ -849,6 +900,112 @@ def dll_test():
         print("Fail")
 
 
+def layer_list_test():
+    # create a LayerList with two inputs and four outputs
+    my_list = LayerList(2, 4)
+    # get a list of the input and output nodes, and make sure we have the right number
+    inputs = my_list.input_nodes
+    print(inputs)
+    outputs = my_list.output_nodes
+    print(outputs)
+    assert len(inputs) == 2
+    assert len(outputs) == 4
+    # check that each has the right number of connections
+    for node in inputs:
+        assert len(node._neighbors[MultiLinkNode.Side.DOWNSTREAM]) == 4
+    for node in outputs:
+        assert len(node._neighbors[MultiLinkNode.Side.UPSTREAM]) == 2
+    # check that the connections go to the right place
+    for node in inputs:
+        out_set = set(node._neighbors[MultiLinkNode.Side.DOWNSTREAM])
+        check_set = set(outputs)
+        assert out_set == check_set
+    for node in outputs:
+        in_set = set(node._neighbors[MultiLinkNode.Side.UPSTREAM])
+        check_set = set(inputs)
+        assert in_set == check_set
+    # add a couple layers and check that they arrived in the right order, and that iterate and rev_iterate work
+    my_list.reset_to_head()
+    my_list.add_layer(3)
+    my_list.add_layer(6)
+    my_list.move_forward()
+    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
+    assert len(my_list.get_current_data()) == 6
+    my_list.move_forward()
+    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
+    assert len(my_list.get_current_data()) == 3
+    # save this layer to make sure it gets properly removed later
+    my_list.move_forward()
+    assert my_list.get_current_data()[0].node_type == LayerType.OUTPUT
+    assert len(my_list.get_current_data()) == 4
+    my_list.move_back()
+    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
+    assert len(my_list.get_current_data()) == 3
+    # check that information flows through all layers
+    save_vals = []
+    for node in outputs:
+        save_vals.append(node.value)
+    for node in inputs:
+        node.set_input(1)
+    for i, node in enumerate(outputs):
+        assert save_vals[i] != node.value
+    # check that information flows back as well
+    save_vals = []
+    for node in inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+        save_vals.append(node.delta)
+    for node in outputs:
+        node.set_expected(1)
+    for i, node in enumerate(inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
+        assert save_vals[i] != node.delta
+    # try to remove an output layer
+    try:
+        my_list.remove_layer()
+        assert False
+    except IndexError:
+        pass
+    except:
+        assert False
+    # move and remove a hidden layer
+    save_list = my_list.get_current_data()
+    my_list.move_back()
+    my_list.remove_layer()
+    # check the order of layers again
+    my_list.reset_to_head()
+    assert my_list.get_current_data()[0].node_type == LayerType.INPUT
+    assert len(my_list.get_current_data()) == 2
+    my_list.move_forward()
+    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
+    assert len(my_list.get_current_data()) == 6
+    my_list.move_forward()
+    assert my_list.get_current_data()[0].node_type == LayerType.OUTPUT
+    assert len(my_list.get_current_data()) == 4
+    my_list.move_back()
+    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
+    assert len(my_list.get_current_data()) == 6
+    my_list.move_back()
+    assert my_list.get_current_data()[0].node_type == LayerType.INPUT
+    assert len(my_list.get_current_data()) == 2
+    # save a value from the removed layer to make sure it doesn't get changed
+    saved_val = save_list[0].value
+    # check that information still flows through all layers
+    save_vals = []
+    for node in outputs:
+        save_vals.append(node.value)
+    for node in inputs:
+        node.set_input(1)
+    for i, node in enumerate(outputs):
+        assert save_vals[i] != node.value
+    # check that information still flows back as well
+    save_vals = []
+    for node in inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+        save_vals.append(node.delta)
+    for node in outputs:
+        node.set_expected(1)
+    for i, node in enumerate(inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
+        assert save_vals[i] != node.delta
+    assert saved_val == save_list[0].value
+
+
 def testing():
     my_list = DoublyLinkedList()
     my_list.add_to_head(0)
@@ -859,6 +1016,7 @@ def testing():
     # print(my_list.move_back())
     # print(my_list.move_back())
 
+
 if __name__ == '__main__':
-    dll_test()
+    layer_list_test()
 
