@@ -20,6 +20,7 @@ class DataMismatchError(Exception):
     def __init__(self, message):
         self.message = message
 
+
 class NNData:
     class Order(Enum):
         """
@@ -272,6 +273,7 @@ class MultiLinkNode(ABC):
     """
     Abstract Class that will be the starting point for the FFBPNeurode class.
     """
+
     class Side(Enum):
         UPSTREAM = 0
         DOWNSTREAM = 1
@@ -457,6 +459,7 @@ class FFNeurode(Neurode):
     range 0-1 through the sigmoid function. This weighted sum value is then
     communicated to all downstream neighboring nodes.
     """
+
     def __init__(self, my_type):
         super().__init__(my_type)
 
@@ -474,7 +477,7 @@ class FFNeurode(Neurode):
         # Calculate weighted values of upstream nodes
         weighted_sum_list = []
         for k, v in self._weights.items():
-            weighted_value = k.value*v
+            weighted_value = k.value * v
             weighted_sum_list.append(weighted_value)
 
         # Sum list of weighted values
@@ -527,7 +530,7 @@ class BPNeurode(Neurode):
 
     @staticmethod
     def _sigmoid_derivative(value):
-        return value*(1 - value)
+        return value * (1 - value)
 
     def _calculate_delta(self, expected_value=None):
         """
@@ -541,7 +544,7 @@ class BPNeurode(Neurode):
         # Calculate delta for Output nodes
         if self._node_type == LayerType.OUTPUT:
             self._delta = (expected_value -
-                           self.value)*self._sigmoid_derivative(self.value)
+                           self.value) * self._sigmoid_derivative(self.value)
 
         # Calculate delta for hidden/input nodes
         else:
@@ -549,12 +552,13 @@ class BPNeurode(Neurode):
 
             # Loop downstream nodes to get weighted downstream delta
             for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-                weighted_delta = node.get_weight(self)*node.delta
+                weighted_delta = node.get_weight(self) * node.delta
                 weighted_downstream_deltas.append(weighted_delta)
 
             # Sum weighted deltas and set self._delta to value
             weighted_sum_downstream_deltas = sum(weighted_downstream_deltas)
-            hidden_delta = weighted_sum_downstream_deltas*self._sigmoid_derivative(self.value)
+            hidden_delta = weighted_sum_downstream_deltas * self._sigmoid_derivative(
+                self.value)
             self._delta = hidden_delta
 
     def data_ready_downstream(self, node):
@@ -604,7 +608,7 @@ class BPNeurode(Neurode):
             downstream_delta = node.delta
             downstream_learning_rate = node.learning_rate
             weight = node.get_weight(self)
-            adjustment = weight + value_upstream_node*downstream_delta*downstream_learning_rate
+            adjustment = weight + value_upstream_node * downstream_delta * downstream_learning_rate
             node.adjust_weights(node=self, adjustment=adjustment)
 
     def _fire_upstream(self):
@@ -630,7 +634,6 @@ class Node:
 
 
 class DoublyLinkedList:
-
     class EmptyListError(Exception):
         """
         This custom exception is raised if our list is empty.
@@ -668,6 +671,7 @@ class DoublyLinkedList:
         """
         if self._curr.prev is None:
             raise IndexError
+
         if self._curr is None:
             return None
         else:
@@ -765,7 +769,7 @@ class DoublyLinkedList:
         Remove node after current node. DONE
         :return:
         """
-        if self._curr == self._tail:
+        if self._curr.next is None:
             raise IndexError
 
         if self._curr is None or self._curr.next is None:
@@ -787,11 +791,23 @@ class DoublyLinkedList:
             else:
                 return self._curr.data
 
+    def __iter__(self):
+        self._curr_iter = self._head
+        return self
+
+    def __next__(self):
+        if self._curr_iter is None:
+            raise StopIteration
+        ret_val = self._curr_iter.data
+        self._curr_iter = self._curr_iter.next
+        return ret_val
+
 
 class LayerList(DoublyLinkedList):
     """
     Extension from Doubly Linked List check.
     """
+
     def __init__(self, inputs: int, outputs: int):
         self.inputs = inputs
         self.outputs = outputs
@@ -805,9 +821,11 @@ class LayerList(DoublyLinkedList):
 
         # Link the two layers together
         for node in self.input_neurodes:
-            node.reset_neighbors(self.output_neurodes, MultiLinkNode.Side.DOWNSTREAM)
+            node.reset_neighbors(self.output_neurodes,
+                                 MultiLinkNode.Side.DOWNSTREAM)
         for node in self.output_neurodes:
-            node.reset_neighbors(self.input_neurodes, MultiLinkNode.Side.UPSTREAM)
+            node.reset_neighbors(self.input_neurodes,
+                                 MultiLinkNode.Side.UPSTREAM)
 
         # Add input and output neurodes to Doubly Linked List
         self.add_to_head(self.input_neurodes)
@@ -820,15 +838,30 @@ class LayerList(DoublyLinkedList):
         :return:
         """
 
-        # call add after cur in method
-        pass
+        hidden_neurodes = [FFBPNeurode(LayerType.HIDDEN)
+                           for _ in range(num_nodes)]
+
+        if self._curr.next is None:
+            raise IndexError
+        else:
+            self.add_after_cur(hidden_neurodes)
+            self.move_forward()
+            for neurode in self._curr.data:
+                neurode.reset_neighbors(self._curr.data,
+                                        MultiLinkNode.Side.DOWNSTREAM)
+                neurode.reset_neighbors(self._curr.prev.data,
+                                        MultiLinkNode.Side.UPSTREAM)
+            self.move_back()
 
     def remove_layer(self):
         """
         Remove the layer AFTER the current layer.
         :return:
         """
-        pass
+        if self._curr.next.next is None:
+            raise IndexError
+        else:
+            self.remove_after_cur()
 
     @property
     def input_nodes(self):
@@ -908,9 +941,7 @@ def layer_list_test():
     my_list = LayerList(2, 4)
     # get a list of the input and output nodes, and make sure we have the right number
     inputs = my_list.input_nodes
-    print(inputs)
     outputs = my_list.output_nodes
-    print(outputs)
     assert len(inputs) == 2
     assert len(outputs) == 4
     # check that each has the right number of connections
@@ -958,7 +989,8 @@ def layer_list_test():
         save_vals.append(node.delta)
     for node in outputs:
         node.set_expected(1)
-    for i, node in enumerate(inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
+    for i, node in enumerate(
+            inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
         assert save_vals[i] != node.delta
     # try to remove an output layer
     try:
@@ -1004,7 +1036,8 @@ def layer_list_test():
         save_vals.append(node.delta)
     for node in outputs:
         node.set_expected(1)
-    for i, node in enumerate(inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
+    for i, node in enumerate(
+            inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
         assert save_vals[i] != node.delta
     assert saved_val == save_list[0].value
 
@@ -1012,14 +1045,33 @@ def layer_list_test():
 def testing():
     my_list = DoublyLinkedList()
     my_list.add_to_head(0)
-    my_list.add_after_cur(50)
-    # print(my_list.reset_to_head())
+    my_list.add_after_cur(35)
+    # print(my_list.get_current_data())
     # print(my_list.move_forward())
-    # print(my_list.move_back())
-    # print(my_list.move_back())
-    # print(my_list.move_back())
+    for node in my_list:
+        print(node)
+
+
+def testing2():
+    my_list = LayerList(2, 4)
+    my_list.reset_to_head()
+    my_list.add_layer(3)
+    my_list.add_layer(6)
+    my_list.move_forward()
+    my_list.move_forward()
+    my_list.move_back()
+    my_list.remove_layer()
+    my_list.reset_to_head()
+    my_list.move_forward()
+    my_list.move_forward()
+    my_list.move_back()
+    # print(my_list.get_current_data())
+    for node in my_list:
+        print(node)
+
+    # TODO: Need to make sure that when removing layer, neurodes are reconnecting
+    # TODO: Currently when moving back it is remembering the 3-neurode hidden layer
 
 
 if __name__ == '__main__':
-    layer_list_test()
-
+    testing2()
