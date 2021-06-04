@@ -687,6 +687,11 @@ class DoublyLinkedList:
         Reset node to head node.
         :return:
         """
+
+        # Raise error if empty list
+        if self._head is None:
+            raise self.EmptyListError
+
         self._curr = self._head
         if self._curr is None:
             return None
@@ -698,6 +703,11 @@ class DoublyLinkedList:
         Reset current node to equal tail node.
         :return:
         """
+
+        # Raise error if empty list
+        if self._head is None:
+            raise self.EmptyListError
+
         self._curr = self._tail
         if self._curr is None:
             return None
@@ -730,6 +740,11 @@ class DoublyLinkedList:
         :param data:
         :return:
         """
+
+        # Raise error if empty list
+        if self._head is None:
+            raise self.EmptyListError
+
         new_node = Node(data)
 
         if self._curr is None:
@@ -738,6 +753,7 @@ class DoublyLinkedList:
 
         # if current node is the tail
         if self._curr.next is None:
+            # raise IndexError
             new_node.prev = self._curr
             self._curr.next = new_node
             new_node.next = None
@@ -757,7 +773,7 @@ class DoublyLinkedList:
         :return:
         """
         if self._head is None:
-            return None
+            raise self.EmptyListError
         ret_val = self._head.data
         self._head = self._head.next
 
@@ -766,16 +782,32 @@ class DoublyLinkedList:
 
     def remove_after_cur(self):
         """
-        Remove node after current node. DONE
+        Remove node after current node.
         :return:
         """
+
+        # Raise error if empty list
+        if self._head is None:
+            raise self.EmptyListError
+
+        # Raise Index Error if current node is tail
         if self._curr.next is None:
             raise IndexError
 
         if self._curr is None or self._curr.next is None:
             return None
-        new_val = self._curr.next.next
-        self._curr.next = new_val
+
+        # Delete Tail Node
+        if self._curr.next.next is None:
+            self._curr.next = None
+            self._tail = self._curr
+
+        # Delete Node somewhere in middle
+        else:
+            ret_next = self._curr.next.next
+            self._curr.next = ret_next
+            self._curr.next.prev = self._curr
+
         return self._curr
 
     def get_current_data(self):
@@ -862,6 +894,20 @@ class LayerList(DoublyLinkedList):
             raise IndexError
         else:
             self.remove_after_cur()
+            for neurode in self._curr.data:
+                neurode.reset_neighbors(self._curr.next.data,
+                                        MultiLinkNode.Side.DOWNSTREAM)
+
+            for neurode in self._curr.data:
+                neurode.reset_neighbors(self._curr.prev.data,
+                                        MultiLinkNode.Side.UPSTREAM)
+            self.move_forward()
+
+            for neurode in self._curr.data:
+                neurode.reset_neighbors(self._curr.prev.data,
+                                        MultiLinkNode.Side.UPSTREAM)
+
+            self.move_back()
 
     @property
     def input_nodes(self):
@@ -1045,11 +1091,13 @@ def layer_list_test():
 def testing():
     my_list = DoublyLinkedList()
     my_list.add_to_head(0)
-    my_list.add_after_cur(35)
-    # print(my_list.get_current_data())
-    # print(my_list.move_forward())
-    for node in my_list:
-        print(node)
+    my_list.add_to_head(1)
+    my_list.add_to_head(6)
+    my_list.add_to_head(7)
+    my_list.move_forward()
+    my_list.remove_after_cur()
+    my_list.move_forward()
+    my_list.move_back()
 
 
 def testing2():
@@ -1064,14 +1112,13 @@ def testing2():
     my_list.reset_to_head()
     my_list.move_forward()
     my_list.move_forward()
-    my_list.move_back()
-    # print(my_list.get_current_data())
-    for node in my_list:
-        print(node)
+    print(my_list.get_current_data())
+    print(my_list.get_current_data()[1])
+    print(my_list.get_current_data()[2])
+    # for node in my_list:
+    #     print(node)
 
-    # TODO: Need to make sure that when removing layer, neurodes are reconnecting
-    # TODO: Currently when moving back it is remembering the 3-neurode hidden layer
 
 
 if __name__ == '__main__':
-    testing2()
+    layer_list_test()
