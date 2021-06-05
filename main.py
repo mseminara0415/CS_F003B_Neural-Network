@@ -723,6 +723,7 @@ class DoublyLinkedList:
         if self._head is None:
             new_node = Node(data)
             new_node.prev = None
+            new_node.next = None
             self._head = new_node
             self._tail = new_node
             self.reset_to_head()
@@ -745,15 +746,13 @@ class DoublyLinkedList:
         if self._head is None:
             raise self.EmptyListError
 
-        new_node = Node(data)
-
         if self._curr is None:
             self.add_to_head(data)
             return
 
         # if current node is the tail
         if self._curr.next is None:
-            # raise IndexError
+            new_node = Node(data)
             new_node.prev = self._curr
             self._curr.next = new_node
             new_node.next = None
@@ -761,6 +760,7 @@ class DoublyLinkedList:
 
         # adding somewhere in the middle of the list
         else:
+            new_node = Node(data)
             stored_next = self._curr.next
             self._curr.next = new_node
             new_node.prev = self._curr
@@ -794,21 +794,17 @@ class DoublyLinkedList:
         if self._curr.next is None:
             raise IndexError
 
-        if self._curr is None or self._curr.next is None:
-            return None
-
         # Delete Tail Node
         if self._curr.next.next is None:
-            self._curr.next = None
-            self._tail = self._curr
+            raise IndexError
 
         # Delete Node somewhere in middle
         else:
+            del_value = self._curr.next.data
             ret_next = self._curr.next.next
             self._curr.next = ret_next
             self._curr.next.prev = self._curr
-
-        return self._curr
+            return del_value
 
     def get_current_data(self):
         """
@@ -877,12 +873,30 @@ class LayerList(DoublyLinkedList):
             raise IndexError
         else:
             self.add_after_cur(hidden_neurodes)
-            self.move_forward()
+
             for neurode in self._curr.data:
-                neurode.reset_neighbors(self._curr.data,
-                                        MultiLinkNode.Side.DOWNSTREAM)
+                neurode.reset_neighbors(self._curr.next.data, MultiLinkNode.Side.DOWNSTREAM)
+
+            # Step into new hidden layer
+            self.move_forward()
+
+            # Now in new hidden layer, link upstream and downstream neighbors
+            for neurode in self._curr.data:
                 neurode.reset_neighbors(self._curr.prev.data,
                                         MultiLinkNode.Side.UPSTREAM)
+                neurode.reset_neighbors(self._curr.next.data,
+                                        MultiLinkNode.Side.DOWNSTREAM)
+
+            # for previous node, link with new hidden node as downstream
+            for neurode in self._curr.prev.data:
+                neurode.reset_neighbors(self._curr.data,
+                                        MultiLinkNode.Side.DOWNSTREAM)
+
+            # for next node, link with new hidden node as upstream
+            for neurode in self._curr.next.data:
+                neurode.reset_neighbors(self._curr.data,
+                                        MultiLinkNode.Side.UPSTREAM)
+
             self.move_back()
 
     def remove_layer(self):
@@ -893,21 +907,14 @@ class LayerList(DoublyLinkedList):
         if self._curr.next.next is None:
             raise IndexError
         else:
-            self.remove_after_cur()
             for neurode in self._curr.data:
-                neurode.reset_neighbors(self._curr.next.data,
+                neurode.reset_neighbors(self._curr.next.next.data,
                                         MultiLinkNode.Side.DOWNSTREAM)
 
-            for neurode in self._curr.data:
-                neurode.reset_neighbors(self._curr.prev.data,
-                                        MultiLinkNode.Side.UPSTREAM)
-            self.move_forward()
+            for neurode in self._curr.next.next.data:
+                neurode.reset_neighbors(self._curr.data, MultiLinkNode.Side.UPSTREAM)
 
-            for neurode in self._curr.data:
-                neurode.reset_neighbors(self._curr.prev.data,
-                                        MultiLinkNode.Side.UPSTREAM)
-
-            self.move_back()
+            self.remove_after_cur()
 
     @property
     def input_nodes(self):
@@ -1035,8 +1042,7 @@ def layer_list_test():
         save_vals.append(node.delta)
     for node in outputs:
         node.set_expected(1)
-    for i, node in enumerate(
-            inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
+    for i, node in enumerate(inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
         assert save_vals[i] != node.delta
     # try to remove an output layer
     try:
@@ -1048,6 +1054,7 @@ def layer_list_test():
         assert False
     # move and remove a hidden layer
     save_list = my_list.get_current_data()
+    print(save_list)
     my_list.move_back()
     my_list.remove_layer()
     # check the order of layers again
@@ -1082,22 +1089,9 @@ def layer_list_test():
         save_vals.append(node.delta)
     for node in outputs:
         node.set_expected(1)
-    for i, node in enumerate(
-            inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
+    for i, node in enumerate(inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
         assert save_vals[i] != node.delta
     assert saved_val == save_list[0].value
-
-
-def testing():
-    my_list = DoublyLinkedList()
-    my_list.add_to_head(0)
-    my_list.add_to_head(1)
-    my_list.add_to_head(6)
-    my_list.add_to_head(7)
-    my_list.move_forward()
-    my_list.remove_after_cur()
-    my_list.move_forward()
-    my_list.move_back()
 
 
 def testing2():
@@ -1106,18 +1100,19 @@ def testing2():
     my_list.add_layer(3)
     my_list.add_layer(6)
     my_list.move_forward()
+    # my_list.remove_layer()
+    # my_list.remove_layer()
     my_list.move_forward()
-    my_list.move_back()
-    my_list.remove_layer()
-    my_list.reset_to_head()
-    my_list.move_forward()
-    my_list.move_forward()
+    # my_list.move_back()
+    # my_list.remove_layer()
+    # my_list.reset_to_head()
+    # my_list.move_forward()
+    # my_list.move_forward()
     print(my_list.get_current_data())
     print(my_list.get_current_data()[1])
-    print(my_list.get_current_data()[2])
+    # print(my_list.get_current_data()[2])
     # for node in my_list:
     #     print(node)
-
 
 
 if __name__ == '__main__':
