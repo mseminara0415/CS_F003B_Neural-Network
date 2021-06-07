@@ -3,7 +3,7 @@ Build a NNData class that will help us better manage our training and
 testing data.
 """
 from abc import ABC, abstractmethod
-from collections import deque
+import collections
 from enum import Enum
 import numpy as np
 import random
@@ -12,255 +12,105 @@ import math
 
 
 class DataMismatchError(Exception):
-    """
-    This custom exception is raised if our features and labels do not match
-    in length.
-    """
-
-    def __init__(self, message):
-        self.message = message
+    """ Label and example lists have different lengths"""
 
 
 class NNData:
+
     class Order(Enum):
-        """
-        Define whether the training data is presented in the same order to NN
-        each time, or in random order.
-        """
         RANDOM = 0
         SEQUENTIAL = 1
 
     class Set(Enum):
-        """
-        This enum will help us identify whether we are requesting training set
-        data or testing set data.
-        """
         TRAIN = 0
         TEST = 1
 
-    def __init__(self,
-                 features: list = None,
-                 labels: list = None,
-                 train_factor: float = .9):
-        """
-        Class built to help us efficiently manage our training and testing
-        data.
-        :param features:
-        :param labels:
-        :param train_factor:
-        """
+    @staticmethod
+    def percentage_limiter(factor):
+        return min(1, max(factor, 0))
 
-        if features is None:
-            self._features = []
-        else:
-            try:
-                self.load_data(features=features, labels=labels)
-            except (DataMismatchError, ValueError):
-                self._features = None
-                self._labels = None
+    def __init__(self, features=None, labels=None, train_factor=.9):
+        self._train_factor = NNData.percentage_limiter(train_factor)
 
-        if labels is None:
-            self._labels = []
-        else:
-            try:
-                self.load_data(features=features, labels=labels)
-            except (DataMismatchError, ValueError):
-                self._features = None
-                self._labels = None
-
-        # Set Training Factor
-        self._train_factor = self.percentage_limiter(train_factor)
-
-        # Set Train and Test indices
         self._train_indices = []
         self._test_indices = []
-
-        self._train_pool = deque()
-        self._test_pool = deque()
+        self._train_pool = collections.deque()
+        self._test_pool = collections.deque()
+        try:
+            self.load_data(features, labels)
+        except (ValueError, DataMismatchError):
+            self._features = None
+            self._labels = None
+            return
         self.split_set()
 
-    @staticmethod
-    def percentage_limiter(percentage: float):
-        """
-        Limits floats to a range between 0 and 1.
-        :param percentage:
-        :return:
-        """
-        if percentage > 1:
-            return 1
-        elif percentage < 0:
-            return 0
-        else:
-            return percentage
+    def load_data(self, features=None, labels=None):
+        if features is None:
+            features = []
+            labels = []
 
-    def split_set(self, new_train_factor: float = None):
-        """
-        Splits features and labels based on training factor. training
-        factor when creating the instance is the default, otherwise it
-        is replaced by the new one given.
-        :param new_train_factor:
-        :return:
-        """
-        if self._features is None:
-            self._train_indices = []
-            self._test_indices = []
-            return
+        if len(features) != len(labels):
+            raise DataMismatchError("Label and example lists have "
+                                    "different lengths")
 
+        try:
+            self._features = np.array(features, dtype=float)
+            self._labels = np.array(labels, dtype=float)
+        except ValueError:
+            self._features = []
+            self._labels = []
+            raise ValueError("Label and example lists must be homogeneous "
+                             "and numeric lists of lists")
+
+    def split_set(self, new_train_factor=None):
         if new_train_factor is not None:
-            self._train_factor = self.percentage_limiter(new_train_factor)
-
-        size = len(self._features)
-        available_indices = [i for i in range(0, size)]
-        number_of_training_examples = floor(size * self._train_factor)
-        indirect_train = []
-        while len(indirect_train) < number_of_training_examples:
-            r = random.randint(available_indices[0], available_indices[-1])
-            if r in indirect_train:
-                continue
-            else:
-                indirect_train.append(r)
-
-        indirect_test = []
-        for i in available_indices:
-            if i in indirect_train:
-                pass
-            else:
-                indirect_test.append(i)
-
-        indirect_train.sort()
-        indirect_test.sort()
-
-        self._train_indices = indirect_train
-        self._test_indices = indirect_test
-
-    def prime_data(self, target_set=None, order=None):
-        """
-        Load one or both deques to be used as indirect indices.
-        :param target_set:
-        :param order:
-        :return:
-        """
-
-        # If target set is set to train
-        if target_set == NNData.Set.TRAIN:
-            if order == NNData.Order.RANDOM:
-                self._train_pool.extend(self._train_indices)
-                random.shuffle(self._train_pool)
-            else:
-                self._train_pool.extend(self._train_indices)
-
-        # If target set is test
-        elif target_set == NNData.Set.TEST:
-            if order == NNData.Order.RANDOM:
-                self._test_pool.extend(self._test_indices)
-                random.shuffle(self._test_pool)
-            else:
-                self._test_pool.extend(self._test_indices)
-
-        # If target set to none, but order is random
-        elif target_set is None and order == NNData.Order.RANDOM:
-            self._train_pool.extend(self._train_indices)
-            self._test_pool.extend(self._test_indices)
-            random.shuffle(self._train_pool)
-            random.shuffle(self._test_pool)
-
-        # If both target set and order are set to None
-        else:
-            self._train_pool.extend(self._train_indices)
-            self._test_pool.extend(self._test_indices)
+            self._train_factor = NNData.percentage_limiter(new_train_factor)
+        total_set_size = len(self._features)
+        train_set_size = math.floor(total_set_size * self._train_factor)
+        self._train_indices = random.sample(range(total_set_size),
+                                            train_set_size)
+        self._test_indices = list(set(range(total_set_size)) -
+                                  set(self._train_indices))
+        self._train_indices.sort()
+        self._test_indices.sort()
 
     def get_one_item(self, target_set=None):
-        """
-        This method will return exactly one feature/label pair as a tuple.
-        :param target_set:
-        :return:
-        """
         try:
-            if target_set is None or target_set == NNData.Set.TRAIN:
-                train_pool_index = self._train_pool.popleft()
-                pair = (self._features[train_pool_index],
-                        self._labels[train_pool_index])
-                return pair
+            if target_set == NNData.Set.TEST:
+                index = self._test_pool.popleft()
             else:
-                test_pool_index = self._test_pool.popleft()
-                pair = (self._features[test_pool_index],
-                        self._labels[test_pool_index])
-                return pair
+                index = self._train_pool.popleft()
+            return self._features[index], self._labels[index]
         except IndexError:
-            print("No more indices left to chose from target_set")
             return None
 
     def number_of_samples(self, target_set=None):
-        """
-        Returns total number of testing or training examples
-        based on the target_set parameter. If target_set is None, then the
-        method returns the total number of combined examples (training + test).
-        :param target_set:
-        :return:
-        """
-
-        if target_set == NNData.Set.TRAIN:
-            return len(self._train_indices)
-        elif target_set == NNData.Set.TEST:
+        if target_set is NNData.Set.TEST:
             return len(self._test_indices)
+        elif target_set is NNData.Set.TRAIN:
+            return len(self._train_indices)
         else:
-            return len(self._train_indices) + len(self._test_indices)
+            return len(self._features)
 
     def pool_is_empty(self, target_set=None):
-        """
-        Returns True if specified target_set is empty, otherwise returns false.
-        When target_set is None, then defaults to evaluating the training pool.
-        :param target_set:
-        :return:
-        """
-        if target_set == NNData.Set.TRAIN:
-            if len(self._train_pool) == 0:
-                return True
-            else:
-                return False
-        elif target_set == NNData.Set.TEST:
-            if len(self._test_pool) == 0:
-                return True
-            else:
-                return False
+        if target_set is NNData.Set.TEST:
+            return len(self._test_pool) == 0
         else:
-            if len(self._train_pool) == 0:
-                return True
-            else:
-                return False
+            return len(self._train_pool) == 0
 
-    def load_data(self,
-                  features=None,
-                  labels=None):
-        """
-        Load features and labels into class instance.
-        :param features:
-        :param labels:
-        :return:
-        """
-
-        if features is None:
-            self._features = None
-            self._labels = None
-            return
-
-        # Make sure features and labels are the same size.
-        length_features = len(features)
-        length_labels = len(labels)
-        if length_features != length_labels:
-            self._features = None
-            self._labels = None
-            raise DataMismatchError("Features and Labels must be of "
-                                    "the same length.")
-
-        else:
-            try:
-                self._features = np.array(features, dtype=float)
-                self._labels = np.array(labels, dtype=float)
-            except ValueError:
-                self._features = None
-                self._labels = None
-                raise ValueError
+    def prime_data(self, my_set=None, order=None):
+        if order is None:
+            order = NNData.Order.SEQUENTIAL
+        if my_set is not NNData.Set.TRAIN:
+            test_indices_temp = list(self._test_indices)
+            if order == NNData.Order.RANDOM:
+                random.shuffle(test_indices_temp)
+            self._test_pool = collections.deque(test_indices_temp)
+        if my_set is not NNData.Set.TEST:
+            train_indices_temp = list(self._train_indices)
+            if order == NNData.Order.RANDOM:
+                random.shuffle(train_indices_temp)
+            self._train_pool = collections.deque(train_indices_temp)
 
 
 class LayerType(Enum):
@@ -270,256 +120,112 @@ class LayerType(Enum):
 
 
 class MultiLinkNode(ABC):
-    """
-    Abstract Class that will be the starting point for the FFBPNeurode class.
-    """
 
     class Side(Enum):
         UPSTREAM = 0
         DOWNSTREAM = 1
 
     def __init__(self):
-        self._reporting_nodes = {MultiLinkNode.Side.UPSTREAM: 0,
-                                 MultiLinkNode.Side.DOWNSTREAM: 0}
-        self._reference_value = {MultiLinkNode.Side.UPSTREAM: 0,
-                                 MultiLinkNode.Side.DOWNSTREAM: 0}
-
-        self._neighbors = {MultiLinkNode.Side.UPSTREAM: [],
-                           MultiLinkNode.Side.DOWNSTREAM: []}
+        self._reporting_nodes = {side: 0 for side in self.Side}
+        self._reference_value = {side: 0 for side in self.Side}
+        self._neighbors = {side: [] for side in self.Side}
 
     def __str__(self):
-        """ Print ID of current node and neighbors."""
-        neighbors_upstream = [id(x) for x in
-                              self._neighbors[MultiLinkNode.Side.UPSTREAM]]
-        neighbors_downstream = [id(x) for x in
-                                self._neighbors[MultiLinkNode.Side.DOWNSTREAM]]
-        return f"Current Node ID:{id(self)}\n" \
-               f"Upstream Neighbor ID's: {neighbors_upstream}\n" \
-               f"Downstream Neighbor ID's: {neighbors_downstream}"
+        ret_str = "-->Node " + str(id(self)) + "\n"
+        ret_str = ret_str + "   Input Nodes:\n"
+        for key in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
+            ret_str = ret_str + "   " + str(id(key)) + "\n"
+        ret_str = ret_str + "   Output Nodes\n"
+        for key in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+            ret_str = ret_str + "   " + str(id(key)) + "\n"
+        return ret_str
 
     @abstractmethod
-    def _process_new_neighbor(self, node, side: Enum):
-        """
-        Method that will be created in child class Neurode.
-        :param node:
-        :param side:
-        :return:
-        """
+    def _process_new_neighbor(self, node, side: Side):
         pass
 
-    def reset_neighbors(self, nodes: list, side: Enum):
-        """
-        Reset (or set) the nodes that link into this node either upstream or
-        downstream.
-        :param nodes:
-        :param side:
-        :return:
-        """
-        if side == MultiLinkNode.Side.UPSTREAM:
-
-            # Copy nodes into Upstream
-            nodes_copy = nodes.copy()
-            self._neighbors[MultiLinkNode.Side.UPSTREAM].extend(nodes_copy)
-
-            # Call Process New Neighbor method
-            for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
-                self._process_new_neighbor(node=node,
-                                           side=MultiLinkNode.Side.UPSTREAM)
-
-            # Calculate Reference Value
-            self._reference_value[MultiLinkNode.Side.UPSTREAM] = 2 ** len(
-                self._neighbors[MultiLinkNode.Side.UPSTREAM]) - 1
-
-        elif side == MultiLinkNode.Side.DOWNSTREAM:
-
-            # Copy nodes into Downstream
-            nodes_copy = nodes.copy()
-            self._neighbors[MultiLinkNode.Side.DOWNSTREAM].extend(nodes_copy)
-
-            # Call Process New Neighbor method
-            for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-                self._process_new_neighbor(node=node,
-                                           side=MultiLinkNode.Side.DOWNSTREAM)
-
-                # Calculate Reference Value
-                self._reference_value[MultiLinkNode.Side.DOWNSTREAM] = 2 ** len(
-                    self._neighbors[MultiLinkNode.Side.DOWNSTREAM]) - 1
+    def reset_neighbors(self, nodes: list, side: Side):
+        self._neighbors[side] = nodes.copy()
+        for node in nodes:
+            self._process_new_neighbor(node, side)
+        self._reference_value[side] = (1 << len(nodes)) - 1
 
 
 class Neurode(MultiLinkNode):
 
-    def __init__(self, node_type: LayerType, learning_rate: float = .05):
-        """
-        This class is inherited from class MultiLinkNode. Allows us associate nodes
-        with neighboring nodes and check them check-in after reporting they have
-        data.
-        :param node_type:
-        :param learning_rate:
-        """
+    def __init__(self, node_type, learning_rate=.05):
+        super().__init__()
         self._value = 0
         self._node_type = node_type
         self._learning_rate = learning_rate
         self._weights = {}
-        super(Neurode, self).__init__()
+
+    def _process_new_neighbor(self, node, side: MultiLinkNode.Side):
+        if side is MultiLinkNode.Side.UPSTREAM:
+            self._weights[node] = random.random()
+
+    def _check_in(self, node, side: MultiLinkNode.Side):
+        node_number = self._neighbors[side].index(node)
+        self._reporting_nodes[side] =\
+            self._reporting_nodes[side] | 1 << node_number
+        if self._reporting_nodes[side] == self._reference_value[side]:
+            self._reporting_nodes[side] = 0
+            return True
+        else:
+            return False
 
     @property
     def value(self):
-        """
-        Return current value of neurode.
-        :return:
-        """
         return self._value
 
     @property
     def node_type(self):
-        """Get node type. This is one of the LayerType elements"""
         return self._node_type
 
     @property
     def learning_rate(self):
-        """Get learning rate."""
         return self._learning_rate
 
     @learning_rate.setter
-    def learning_rate(self, new_learning_rate: float):
-        """
-        Set learning rate parameter.
-        :param new_learning_rate:
-        :return:
-        """
-        self._learning_rate = new_learning_rate
+    def learning_rate(self, learning_rate: float):
+        self._learning_rate = learning_rate
 
-    def _process_new_neighbor(self, node: 'Neurode', side: Enum):
-        """
-        Process new node neighbors.
-        :param node:
-        :param side:
-        :return:
-        """
-        if side == MultiLinkNode.Side.UPSTREAM:
-            self._weights[node] = random.uniform(0, 1)
-        else:
-            pass
-
-    def _check_in(self, node: 'Neurode', side: MultiLinkNode.Side):
-        """
-        Method called when neighboring nodes check-in with data.
-        :param node:
-        :param side:
-        :return:
-        """
-
-        # Up-stream/down-stream Sides
-        up_stream = MultiLinkNode.Side.UPSTREAM
-        down_stream = MultiLinkNode.Side.DOWNSTREAM
-
-        # Check in process for up-stream nodes
-        if side == MultiLinkNode.Side.UPSTREAM:
-            node_index = self._neighbors[up_stream].index(node)
-            new_report = 2 ** node_index
-            self._reporting_nodes[MultiLinkNode.Side.UPSTREAM] = \
-                self._reporting_nodes[up_stream] | new_report
-            upstream_reference_value = self._reference_value[
-                up_stream]
-
-            # Validate if all up-stream nodes have checked in
-            if upstream_reference_value == self._reporting_nodes[up_stream]:
-                self._reporting_nodes[up_stream] = 0
-                return True
-            else:
-                return False
-
-        # Check-in process for down-stream nodes
-        elif side == down_stream:
-            node_index = self._neighbors[down_stream].index(node)
-            new_report = 2 ** node_index
-            self._reporting_nodes[down_stream] = \
-                self._reporting_nodes[down_stream] | new_report
-            downstream_reference_value = self._reference_value[down_stream]
-
-            # Validate if all nodes have checked in
-            if downstream_reference_value == self._reporting_nodes[down_stream]:
-                self._reporting_nodes[down_stream] = 0
-                return True
-            else:
-                return False
-
-    def get_weight(self, node: 'Neurode'):
-        """
-        Look up node in weights dictionary to find associated weight.
-        :param node:
-        :return:
-        """
+    def get_weight(self, node):
         return self._weights[node]
 
 
 class FFNeurode(Neurode):
-    """
-    Calculates weighted values from upstream nodes which are then bound to a
-    range 0-1 through the sigmoid function. This weighted sum value is then
-    communicated to all downstream neighboring nodes.
-    """
 
     def __init__(self, my_type):
         super().__init__(my_type)
 
     @staticmethod
     def _sigmoid(value):
-        return 1 / (1 + math.exp(-value))
+        return 1 / (1 + np.exp(-value))
 
     def _calculate_value(self):
-        """
-        Calculate the weighted sum of upstream nodes' values. Pass this result
-        to the method 'sigmoid' and store returned value into _value attribute.
-        :return:
-        """
-
-        # Calculate weighted values of upstream nodes
-        weighted_sum_list = []
-        for k, v in self._weights.items():
-            weighted_value = k.value * v
-            weighted_sum_list.append(weighted_value)
-
-        # Sum list of weighted values
-        weighted_sum = sum(weighted_sum_list)
-
-        # Set _value attribute
-        self._value = self._sigmoid(weighted_sum)
+        input_sum = 0
+        for node, weight in self._weights.items():
+            input_sum += node.value * weight
+        self._value = self._sigmoid(input_sum)
 
     def _fire_downstream(self):
-        """
-        Runs the method 'data_ready_upstream' for each neighboring downstream
-        node.
-        :return:
-        """
-
         for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
             node.data_ready_upstream(self)
 
-    def data_ready_upstream(self, node):
-        """
-        Upstream Nodes will call this method once they have data ready.
-        :param node:
-        :return:
-        """
-
-        # If node has data call methods 'calculate value' and 'fire downstream'
-        if self._check_in(node, side=MultiLinkNode.Side.UPSTREAM):
+    def data_ready_upstream(self, from_node):
+        if self._check_in(from_node, MultiLinkNode.Side.UPSTREAM):
             self._calculate_value()
             self._fire_downstream()
 
-    def set_input(self, input_value):
-        """
-        Directly set the value of an input layer neurode.
-        :param input_value:
-        :return:
-        """
-
+    def set_input(self, input_value: float):
         self._value = input_value
-        self._fire_downstream()
+        for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+            node.data_ready_upstream(self)
 
 
 class BPNeurode(Neurode):
+
     def __init__(self, my_type):
         super().__init__(my_type)
         self._delta = 0
@@ -530,94 +236,37 @@ class BPNeurode(Neurode):
 
     @staticmethod
     def _sigmoid_derivative(value):
-        return value * (1 - value)
+        return value * (1.0 - value)
 
     def _calculate_delta(self, expected_value=None):
-        """
-        Calculate the delta between the node value and the expected Value. If
-        node type is of 'Output' then calculate 1st way. Else
-        calculate another way. TESTING.
-        :param expected_value:
-        :return:
-        """
-
-        # Calculate delta for Output nodes
         if self._node_type == LayerType.OUTPUT:
-            self._delta = (expected_value -
-                           self.value) * self._sigmoid_derivative(self.value)
-
-        # Calculate delta for hidden/input nodes
+            error = expected_value - self.value
+            self._delta = error * self._sigmoid_derivative(self.value)
         else:
-            weighted_downstream_deltas = []
+            self._delta = 0
+            for neurode in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
+                self._delta += neurode.get_weight(self) * neurode.delta
+            self._delta *= self._sigmoid_derivative(self.value)
 
-            # Loop downstream nodes to get weighted downstream delta
-            for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-                weighted_delta = node.get_weight(self) * node.delta
-                weighted_downstream_deltas.append(weighted_delta)
+    def set_expected(self, expected_value: float):
+        self._calculate_delta(expected_value)
+        self._fire_upstream()
 
-            # Sum weighted deltas and set self._delta to value
-            weighted_sum_downstream_deltas = sum(weighted_downstream_deltas)
-            hidden_delta = weighted_sum_downstream_deltas * self._sigmoid_derivative(
-                self.value)
-            self._delta = hidden_delta
-
-    def data_ready_downstream(self, node):
-        """
-        Downstream Nodes will call this method once they have data ready.
-        :param node:
-        :return:
-        """
-
-        # If node has data call methods '_calculate_delta' and '_fire_upstream'
-        if self._check_in(node, side=MultiLinkNode.Side.DOWNSTREAM):
+    def data_ready_downstream(self, from_node):
+        if self._check_in(from_node, MultiLinkNode.Side.DOWNSTREAM):
             self._calculate_delta()
             self._fire_upstream()
             self._update_weights()
 
-    def set_expected(self, expected_value):
-        """
-        Directly set the value of an output layer neurode.
-        :param expected_value:
-        :return:
-        """
-        self._calculate_delta(expected_value=expected_value)
-
-        for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
-            node.data_ready_downstream(node=self)
-
     def adjust_weights(self, node, adjustment):
-        """
-        Called by an upstream node, using node reference to add adjustment to
-        appropriate entry of self._weights.
-        :param node:
-        :param adjustment:
-        :return:
-        """
-        self._weights[node] = adjustment
+        self._weights[node] += adjustment
 
     def _update_weights(self):
-        """
-        Iterate through its downstream neighbors, and use adjust_weights to
-        request an adjustment to the weight given to this node's data.
-        :return:
-        """
-
-        # Loop through downstream neighbors and use method 'adjust_weights'
         for node in self._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-            value_upstream_node = self.value
-            downstream_delta = node.delta
-            downstream_learning_rate = node.learning_rate
-            weight = node.get_weight(self)
-            adjustment = weight + value_upstream_node * downstream_delta * downstream_learning_rate
-            node.adjust_weights(node=self, adjustment=adjustment)
+            adjustment = node.learning_rate * node.delta * self.value
+            node.adjust_weights(self, adjustment)
 
     def _fire_upstream(self):
-        """
-        Runs the method 'data_ready_upstream' for each neighboring downstream
-        node.
-        :return:
-        """
-
         for node in self._neighbors[MultiLinkNode.Side.UPSTREAM]:
             node.data_ready_downstream(self)
 
@@ -626,310 +275,157 @@ class FFBPNeurode(FFNeurode, BPNeurode):
     pass
 
 
-class Node:
-    def __init__(self, data):
-        self.data = data
-        self.next = None
+class DLLNode:
+    """ Node class for a DoublyLinkedList - not designed for
+        general clients, so no accessors or exception raising """
+
+    def __init__(self, data=None):
         self.prev = None
+        self.next = None
+        self.data = data
 
 
 class DoublyLinkedList:
-    class EmptyListError(Exception):
-        """
-        This custom exception is raised if our list is empty.
-        """
 
-        def __init__(self, message):
-            self.message = message
+    class EmptyListError(Exception):
+        pass
 
     def __init__(self):
         self._head = None
-        self._curr = None
         self._tail = None
-
-    def move_forward(self):
-        """
-        Move forward one position in list.
-        :return:
-        """
-        if self._curr.next is None:
-            raise IndexError
-        if self._curr is None:
-            return None
-        else:
-            self._curr = self._curr.next
-
-        if self._curr is None:
-            return None
-        else:
-            return self._curr.data
-
-    def move_back(self):
-        """
-        Move back one position in list.
-        :return:
-        """
-        if self._curr.prev is None:
-            raise IndexError
-
-        if self._curr is None:
-            return None
-        else:
-            self._curr = self._curr.prev
-
-        if self._curr is None:
-            return None
-        else:
-            return self._curr.data
-
-    def reset_to_head(self):
-        """
-        Reset node to head node.
-        :return:
-        """
-
-        # Raise error if empty list
-        if self._head is None:
-            raise self.EmptyListError
-
-        self._curr = self._head
-        if self._curr is None:
-            return None
-        else:
-            return self._curr.data
-
-    def reset_to_tail(self):
-        """
-        Reset current node to equal tail node.
-        :return:
-        """
-
-        # Raise error if empty list
-        if self._head is None:
-            raise self.EmptyListError
-
-        self._curr = self._tail
-        if self._curr is None:
-            return None
-        else:
-            return self._curr.data
-
-    def add_to_head(self, data):
-        """
-        insert item at the beginning of the doubly linked list.
-        :param data:
-        :return:
-        """
-        if self._head is None:
-            new_node = Node(data)
-            new_node.prev = None
-            new_node.next = None
-            self._head = new_node
-            self._tail = new_node
-            self.reset_to_head()
-        else:
-            new_node = Node(data)
-            self._head.prev = new_node
-            new_node.next = self._head
-            self._head = new_node
-            new_node.prev = None
-            self.reset_to_head()
-
-    def add_after_cur(self, data):
-        """
-        Add node after current node.
-        :param data:
-        :return:
-        """
-
-        # Raise error if empty list
-        if self._head is None:
-            raise self.EmptyListError
-
-        if self._curr is None:
-            self.add_to_head(data)
-            return
-
-        # if current node is the tail
-        if self._curr.next is None:
-            new_node = Node(data)
-            new_node.prev = self._curr
-            self._curr.next = new_node
-            new_node.next = None
-            self._tail = new_node
-
-        # adding somewhere in the middle of the list
-        else:
-            new_node = Node(data)
-            stored_next = self._curr.next
-            self._curr.next = new_node
-            new_node.prev = self._curr
-            new_node.next = stored_next
-            stored_next.prev = new_node
-
-    def remove_from_head(self):
-        """
-        Remove node at head of list.
-        :return:
-        """
-        if self._head is None:
-            raise self.EmptyListError
-        ret_val = self._head.data
-        self._head = self._head.next
-
-        self.reset_to_head()
-        return ret_val
-
-    def remove_after_cur(self):
-        """
-        Remove node after current node.
-        :return:
-        """
-
-        # Raise error if empty list
-        if self._head is None:
-            raise self.EmptyListError
-
-        # Raise Index Error if current node is tail
-        if self._curr.next is None:
-            raise IndexError
-
-        # Delete Tail Node
-        if self._curr.next.next is None:
-            raise IndexError
-
-        # Delete Node somewhere in middle
-        else:
-            del_value = self._curr.next.data
-            ret_next = self._curr.next.next
-            self._curr.next = ret_next
-            self._curr.next.prev = self._curr
-            return del_value
-
-    def get_current_data(self):
-        """
-        Get current node's data. DONE
-        :return:
-        """
-        if self._head is None:
-            raise DoublyLinkedList.EmptyListError("This is an empty list.")
-        else:
-            if self._curr is None:
-                return None
-            else:
-                return self._curr.data
+        self._current = None
 
     def __iter__(self):
-        self._curr_iter = self._head
         return self
 
     def __next__(self):
-        if self._curr_iter is None:
-            raise StopIteration
-        ret_val = self._curr_iter.data
-        self._curr_iter = self._curr_iter.next
+        if self._current and self._current.next:
+            ret_val = self._current.data
+            self._current = self._current.next
+            return ret_val
+        raise StopIteration
+
+    def move_forward(self):
+        if not self._current:
+            raise DoublyLinkedList.EmptyListError
+        if self._current.next:
+            self._current = self._current.next
+        else:
+            raise IndexError
+
+    def move_back(self):
+        if not self._current:
+            raise DoublyLinkedList.EmptyListError
+        if self._current.prev:
+            self._current = self._current.prev
+        else:
+            raise IndexError
+
+    def add_to_head(self, data):
+        new_node = DLLNode(data)
+        new_node.next = self._head
+        if self._head:
+            self._head.prev = new_node
+        self._head = new_node
+        if self._tail is None:
+            self._tail = new_node
+        self.reset_to_head()
+
+    def remove_from_head(self):
+        if not self._head:
+            raise DoublyLinkedList.EmptyListError
+
+        ret_val = self._head.data
+        self._head = self._head.next
+        if self._head:
+            self._head.prev = None
+        else:
+            self._tail = None
+        self.reset_to_head()
         return ret_val
+
+    def add_after_cur(self, data):
+        if not self._current:
+            raise DoublyLinkedList.EmptyListError
+        new_node = DLLNode(data)
+        new_node.prev = self._current
+        new_node.next = self._current.next
+        if self._current.next:
+            self._current.next.prev = new_node
+        self._current.next = new_node
+        if self._tail == self._current:
+            self._tail = new_node
+
+    def remove_after_cur(self):
+        if not self._current:
+            raise DoublyLinkedList.EmptyListError
+        if self._current == self._tail:
+            raise IndexError
+        ret_val = self._current.next.data
+        if self._current.next == self._tail:
+            self._tail = self._current
+            self._current.next = None
+        else:
+            self._current.next = self._current.next.next
+            self._current.next.prev = self._current
+        return ret_val
+
+    def reset_to_head(self):
+        if not self._head:
+            raise DoublyLinkedList.EmptyListError
+        self._current = self._head
+
+    def reset_to_tail(self):
+        if not self._tail:
+            raise DoublyLinkedList.EmptyListError
+        self._current = self._tail
+
+    def get_current_data(self):
+        if not self._current:
+            raise DoublyLinkedList.EmptyListError
+        return self._current.data
 
 
 class LayerList(DoublyLinkedList):
-    """
-    Extension from Doubly Linked List check.
-    """
 
-    def __init__(self, inputs: int, outputs: int):
-        self.inputs = inputs
-        self.outputs = outputs
+    def __init__(self, inputs, outputs):
         super().__init__()
+        if inputs < 1 or outputs < 1:
+            raise ValueError
+        input_layer = [FFBPNeurode(LayerType.INPUT) for _ in range(inputs)]
+        output_layer = [FFBPNeurode(LayerType.OUTPUT) for _ in range(outputs)]
+        self.add_to_head(input_layer)
+        self.add_after_cur(output_layer)
+        self._link_with_next()
 
-        # Create List of Input and Output neurodes
-        self.input_neurodes = [FFBPNeurode(LayerType.INPUT)
-                               for _ in range(self.inputs)]
-        self.output_neurodes = [FFBPNeurode(LayerType.OUTPUT)
-                                for _ in range(self.outputs)]
+    def _link_with_next(self):
+        for node in self._current.data:
+            node.reset_neighbors(self._current.next.data, FFBPNeurode.Side.DOWNSTREAM)
+        for node in self._current.next.data:
+            node.reset_neighbors(self._current.data, FFBPNeurode.Side.UPSTREAM)
 
-        # Link the two layers together
-        for node in self.input_neurodes:
-            node.reset_neighbors(self.output_neurodes,
-                                 MultiLinkNode.Side.DOWNSTREAM)
-        for node in self.output_neurodes:
-            node.reset_neighbors(self.input_neurodes,
-                                 MultiLinkNode.Side.UPSTREAM)
-
-        # Add input and output neurodes to Doubly Linked List
-        self.add_to_head(self.input_neurodes)
-        self.add_after_cur(self.output_neurodes)
-
-    def add_layer(self, num_nodes: int):
-        """
-        Add hidden layer of neurodes after the current layer.
-        :param num_nodes: number of hidden neurodes in layer.
-        :return:
-        """
-
-        hidden_neurodes = [FFBPNeurode(LayerType.HIDDEN)
-                           for _ in range(num_nodes)]
-
-        if self._curr.next is None:
+    def add_layer(self, num_nodes):
+        if self._current == self._tail:
             raise IndexError
-        else:
-            self.add_after_cur(hidden_neurodes)
-
-            for neurode in self._curr.data:
-                neurode.reset_neighbors(self._curr.next.data, MultiLinkNode.Side.DOWNSTREAM)
-
-            # Step into new hidden layer
-            self.move_forward()
-
-            # Now in new hidden layer, link upstream and downstream neighbors
-            for neurode in self._curr.data:
-                neurode.reset_neighbors(self._curr.prev.data,
-                                        MultiLinkNode.Side.UPSTREAM)
-                neurode.reset_neighbors(self._curr.next.data,
-                                        MultiLinkNode.Side.DOWNSTREAM)
-
-            # for previous node, link with new hidden node as downstream
-            for neurode in self._curr.prev.data:
-                neurode.reset_neighbors(self._curr.data,
-                                        MultiLinkNode.Side.DOWNSTREAM)
-
-            # for next node, link with new hidden node as upstream
-            for neurode in self._curr.next.data:
-                neurode.reset_neighbors(self._curr.data,
-                                        MultiLinkNode.Side.UPSTREAM)
-
-            self.move_back()
+        hidden_layer = [FFBPNeurode(LayerType.HIDDEN) for _ in range(num_nodes)]
+        self.add_after_cur(hidden_layer)
+        self._link_with_next()
+        self.move_forward()
+        self._link_with_next()
+        self.move_back()
 
     def remove_layer(self):
-        """
-        Remove the layer AFTER the current layer.
-        :return:
-        """
-        if self._curr.next.next is None:
+        if self._current == self._tail or self._current.next == self._tail:
             raise IndexError
-        else:
-            for neurode in self._curr.data:
-                neurode.reset_neighbors(self._curr.next.next.data,
-                                        MultiLinkNode.Side.DOWNSTREAM)
-
-            for neurode in self._curr.next.next.data:
-                neurode.reset_neighbors(self._curr.data, MultiLinkNode.Side.UPSTREAM)
-
-            self.remove_after_cur()
+        self.remove_after_cur()
+        self._link_with_next()
 
     @property
     def input_nodes(self):
-        """
-        Return a list of input layer neurodes.
-        :return:
-        """
         return self._head.data
 
     @property
     def output_nodes(self):
-        """
-        Return a list of output layer neurodes.
-        :return:
-        """
         return self._tail.data
 
 
@@ -947,173 +443,41 @@ def load_xor():
                              train_factor=1)
 
 
-def dll_test():
-    my_list = DoublyLinkedList()
-    try:
-        my_list.get_current_data()
-    except DoublyLinkedList.EmptyListError:
-        print("Pass")
-    else:
-        print("Fail")
-    for a in range(3):
-        my_list.add_to_head(a)
-    if my_list.get_current_data() != 2:
-        print("Error")
-    my_list.move_forward()
-    if my_list.get_current_data() != 1:
-        print("Fail")
-    my_list.move_forward()
-    try:
-        my_list.move_forward()
-    except IndexError:
-        print("Pass")
-    else:
-        print("Fail")
-    if my_list.get_current_data() != 0:
-        print("Fail")
-    my_list.move_back()
-    my_list.remove_after_cur()
-    if my_list.get_current_data() != 1:
-        print("Fail")
-    my_list.move_back()
-    if my_list.get_current_data() != 2:
-        print("Fail")
-    try:
-        my_list.move_back()
-    except IndexError:
-        print("Pass")
-    else:
-        print("Fail")
-    my_list.move_forward()
-    if my_list.get_current_data() != 1:
-        print("Fail")
+class FFBPNetwork:
 
+    class EmptySetException(Exception):
+        """
+        Error if set is empty.
+        """
 
-def layer_list_test():
-    # create a LayerList with two inputs and four outputs
-    my_list = LayerList(2, 4)
-    # get a list of the input and output nodes, and make sure we have the right number
-    inputs = my_list.input_nodes
-    outputs = my_list.output_nodes
-    assert len(inputs) == 2
-    assert len(outputs) == 4
-    # check that each has the right number of connections
-    for node in inputs:
-        assert len(node._neighbors[MultiLinkNode.Side.DOWNSTREAM]) == 4
-    for node in outputs:
-        assert len(node._neighbors[MultiLinkNode.Side.UPSTREAM]) == 2
-    # check that the connections go to the right place
-    for node in inputs:
-        out_set = set(node._neighbors[MultiLinkNode.Side.DOWNSTREAM])
-        check_set = set(outputs)
-        assert out_set == check_set
-    for node in outputs:
-        in_set = set(node._neighbors[MultiLinkNode.Side.UPSTREAM])
-        check_set = set(inputs)
-        assert in_set == check_set
-    # add a couple layers and check that they arrived in the right order, and that iterate and rev_iterate work
-    my_list.reset_to_head()
-    my_list.add_layer(3)
-    my_list.add_layer(6)
-    my_list.move_forward()
-    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
-    assert len(my_list.get_current_data()) == 6
-    my_list.move_forward()
-    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
-    assert len(my_list.get_current_data()) == 3
-    # save this layer to make sure it gets properly removed later
-    my_list.move_forward()
-    assert my_list.get_current_data()[0].node_type == LayerType.OUTPUT
-    assert len(my_list.get_current_data()) == 4
-    my_list.move_back()
-    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
-    assert len(my_list.get_current_data()) == 3
-    # check that information flows through all layers
-    save_vals = []
-    for node in outputs:
-        save_vals.append(node.value)
-    for node in inputs:
-        node.set_input(1)
-    for i, node in enumerate(outputs):
-        assert save_vals[i] != node.value
-    # check that information flows back as well
-    save_vals = []
-    for node in inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-        save_vals.append(node.delta)
-    for node in outputs:
-        node.set_expected(1)
-    for i, node in enumerate(inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
-        assert save_vals[i] != node.delta
-    # try to remove an output layer
-    try:
-        my_list.remove_layer()
-        assert False
-    except IndexError:
+    def __init__(self, num_inputs: int, num_outputs: int):
+        self.network = LayerList(num_inputs, num_outputs)
+        self.inputs = num_inputs
+        self.outputs = num_outputs
+
+    def add_hidden_layer(self, num_nodes: int, position=0):
         pass
-    except:
-        assert False
-    # move and remove a hidden layer
-    save_list = my_list.get_current_data()
-    print(save_list)
-    my_list.move_back()
-    my_list.remove_layer()
-    # check the order of layers again
-    my_list.reset_to_head()
-    assert my_list.get_current_data()[0].node_type == LayerType.INPUT
-    assert len(my_list.get_current_data()) == 2
-    my_list.move_forward()
-    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
-    assert len(my_list.get_current_data()) == 6
-    my_list.move_forward()
-    assert my_list.get_current_data()[0].node_type == LayerType.OUTPUT
-    assert len(my_list.get_current_data()) == 4
-    my_list.move_back()
-    assert my_list.get_current_data()[0].node_type == LayerType.HIDDEN
-    assert len(my_list.get_current_data()) == 6
-    my_list.move_back()
-    assert my_list.get_current_data()[0].node_type == LayerType.INPUT
-    assert len(my_list.get_current_data()) == 2
-    # save a value from the removed layer to make sure it doesn't get changed
-    saved_val = save_list[0].value
-    # check that information still flows through all layers
-    save_vals = []
-    for node in outputs:
-        save_vals.append(node.value)
-    for node in inputs:
-        node.set_input(1)
-    for i, node in enumerate(outputs):
-        assert save_vals[i] != node.value
-    # check that information still flows back as well
-    save_vals = []
-    for node in inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]:
-        save_vals.append(node.delta)
-    for node in outputs:
-        node.set_expected(1)
-    for i, node in enumerate(inputs[1]._neighbors[MultiLinkNode.Side.DOWNSTREAM]):
-        assert save_vals[i] != node.delta
-    assert saved_val == save_list[0].value
+    # use add layer from LayerList
+    # reset to head
 
+    def train(self, data_set: NNData, epochs=1000, verbosity=2, order=NNData.Order.RANDOM):
+        if data_set.pool_is_empty(data_set):
+            raise
 
-def testing2():
-    my_list = LayerList(2, 4)
-    my_list.reset_to_head()
-    my_list.add_layer(3)
-    my_list.add_layer(6)
-    my_list.move_forward()
-    # my_list.remove_layer()
-    # my_list.remove_layer()
-    my_list.move_forward()
-    # my_list.move_back()
-    # my_list.remove_layer()
-    # my_list.reset_to_head()
-    # my_list.move_forward()
-    # my_list.move_forward()
-    print(my_list.get_current_data())
-    print(my_list.get_current_data()[1])
-    # print(my_list.get_current_data()[2])
-    # for node in my_list:
-    #     print(node)
+        # Get one item
+        # Feed it to the input layer
+        # See what comes out in the output layer
+        # update error
+        # Feed the answer back into the network (ground truth - expected value) using set expected
+        # repeat
+
+        # mean squared error for items in epoch
+        # add up each epochs value and take ro
+        # Between epochs reset test data
+
+    def test(self, data_set:NNData,order=NNData.Order.SEQUENTIAL):
+        pass
 
 
 if __name__ == '__main__':
-    layer_list_test()
+    pass
