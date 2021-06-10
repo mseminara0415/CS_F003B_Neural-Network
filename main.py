@@ -485,22 +485,52 @@ class FFBPNetwork:
             # Reset to head
             self.network.reset_to_head()
 
-    def train(self, data_set: NNData, epochs=1000, verbosity=2, order=NNData.Order.RANDOM):
+    def train(self, data_set: NNData, epochs=3001, verbosity=2, order=NNData.Order.RANDOM):
 
+        # Prime the data
+        data_set.prime_data(data_set.Set.TRAIN, order=order)
+
+        # Check if training set is empty
         if data_set.pool_is_empty(data_set):
             raise self.EmptySetException
         else:
+            final_rmse = 0
             for epoch in range(epochs):
                 data_set.prime_data(data_set.Set.TRAIN, order=order)
                 while not data_set.pool_is_empty(data_set):
                     feature_label_pair = data_set.get_one_item(data_set.Set.TRAIN)
-                    feature = feature_label_pair[0]
-                    label = feature_label_pair[1]
+                    features = feature_label_pair[0]
+                    labels = feature_label_pair[1]
+
+                    # Get list of Input/Output Neurodes
                     inputs = self.network.input_nodes
-                    for node in inputs:
-                        node.set_expected(feature)
+                    outputs = self.network.output_nodes
+                    output_node_errors = []
 
+                    for i, feature in enumerate(features):
+                        inputs[i].set_input(features[i])
+                    for i, label in enumerate(labels):
+                        outputs[i].set_expected(labels[i])
+                        error = outputs[i].delta
+                        output_node_errors.append(error)
 
+                    squared_errors = [output_error ** 2 for output_error in output_node_errors]
+                    sum_squared_errors = sum(squared_errors)/len(outputs)
+                    epoch_rsme = np.sqrt(sum_squared_errors)
+
+                    if verbosity > 0:
+                        if epoch % 100 == 0:
+                            print(f"Epoch {epoch}: RMSE = {epoch_rsme}")
+                    if verbosity > 1:
+                        if epoch % 100 == 0:
+                            print(f"Sample {features} expected {labels} produced {output_node_errors}")
+                        if epoch % 1000 == 0:
+                            print(f"Epoch {epoch} RMSE = {epoch_rsme}")
+
+                    final_rmse = epoch_rsme
+                    epoch_rsme = 0
+
+            print(f"Final RMSE: {final_rmse} ")
 
 
 
@@ -520,106 +550,14 @@ class FFBPNetwork:
         pass
 
 def unit_test():
-    errors = False
-    try:
-        # Create a valid small and large dataset to be used later
-        x = [[i] for i in range(10)]
-        y = x
-        our_data_0 = NNData(x, y)
-        x = [[i] for i in range(100)]
-        y = x
-        our_big_data = NNData(x, y, .5)
+    Iris_X = [[5.1, 3.5, 1.4, 0.2], [4.9, 3, 1.4, 0.2], [4.7, 3.2, 1.3, 0.2],
+              [4.6, 3.1, 1.5, 0.2]]
 
-        # Try loading lists of different sizes
-        y = [[1]]
-        try:
-            our_bad_data = NNData()
-            our_bad_data.load_data(x, y)
-            raise Exception
-        except DataMismatchError:
-            pass
-        except:
-            raise Exception
-
-        # Create a dataset that can be used to make sure the
-        # features and labels are not confused
-        x = [[1.0], [2.0], [3.0], [4.0]]
-        y = [[.1], [.2], [.3], [.4]]
-        our_data_1 = NNData(x, y, .5)
-
-    except:
-        print("There are errors that likely come from __init__ or a "
-              "method called by __init__")
-        errors = True
-
-    # Test split_set to make sure the correct number of examples are in
-    # each set, and that the indices do not overlap.
-    try:
-        our_data_0.split_set(.3)
-        print(f"Train Indices:{our_data_0._train_indices}")
-        print(f"Test Indices:{our_data_0._test_indices}")
-
-        assert len(our_data_0._train_indices) == 3
-        assert len(our_data_0._test_indices) == 7
-        assert (list(set(our_data_0._train_indices +
-                         our_data_0._test_indices))) == list(range(10))
-    except:
-        print("There are errors that likely come from split_set")
-        errors = True
-
-    # Make sure prime_data sets up the deques correctly, whether
-    # sequential or random.
-    try:
-        our_data_0.prime_data(order=NNData.Order.SEQUENTIAL)
-        assert len(our_data_0._train_pool) == 3
-        assert len(our_data_0._test_pool) == 7
-        assert our_data_0._train_indices == list(our_data_0._train_pool)
-        assert our_data_0._test_indices == list(our_data_0._test_pool)
-        our_big_data.prime_data(order=NNData.Order.RANDOM)
-        assert our_big_data._train_indices != list(our_big_data._train_pool)
-        assert our_big_data._test_indices != list(our_big_data._test_pool)
-    except:
-        print("There are errors that likely come from prime_data")
-        errors = True
-
-    # Make sure get_one_item is returning the correct values, and
-    # that pool_is_empty functions correctly.
-    try:
-        our_data_1.prime_data(order=NNData.Order.SEQUENTIAL)
-        my_x_list = []
-        my_y_list = []
-        while not our_data_1.pool_is_empty():
-            example = our_data_1.get_one_item()
-            print(example)
-            my_x_list.append(list(example[0]))
-            my_y_list.append(list(example[1]))
-        assert len(my_x_list) == 2
-        assert my_x_list != my_y_list
-        my_matched_x_list = [i[0] * 10 for i in my_y_list]
-        assert my_matched_x_list == my_x_list
-        while not our_data_1.pool_is_empty(our_data_1.Set.TEST):
-            example = our_data_1.get_one_item(our_data_1.Set.TEST)
-            my_x_list.append(list(example[0]))
-            my_y_list.append(list(example[1]))
-        assert my_x_list != my_y_list
-        my_matched_x_list = [i[0] * 10 for i in my_y_list]
-        assert my_matched_x_list == my_x_list
-        assert set(i[0] for i in my_x_list) == set(i[0] for i in x)
-        assert set(i[0] for i in my_y_list) == set(i[0] for i in y)
-    except:
-        print("There are errors that may come from prime_data, but could "
-              "be from another method")
-        errors = True
-
-    # Summary
-    if errors:
-        print("You have one or more errors.  Please fix them before "
-              "submitting")
-    else:
-        print("No errors were identified by the unit test.")
-        print("You should still double check that your code meets spec.")
-        print("You should also check that PyCharm does not identify any "
-              "PEP-8 issues.")
+    Iris_Y = [[1, 0, 0, ], [1, 0, 0, ], [1, 0, 0, ], [1, 0, 0, ]]
+    network = FFBPNetwork(4,3)
+    network.add_hidden_layer(3)
+    data = NNData(Iris_X, Iris_Y, train_factor=.7)
+    network.train(data, verbosity=2)
 
 
 if __name__ == '__main__':
