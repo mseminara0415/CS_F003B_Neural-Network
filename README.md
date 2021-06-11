@@ -16,7 +16,7 @@ The learning happens in two steps:
 - Back-Propagation<br />
 
 This means we are making a guess (forward-propagation) and then
-minimizing the error between the actual answer guessed (back-propagation)...Rinse and repeat.
+minimizing the error between the actual answer and the guessed value (back-propagation)...Rinse and repeat.
 
 
 ## Well what exactly does a Neural Network look like??
