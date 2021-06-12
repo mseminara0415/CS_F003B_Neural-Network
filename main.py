@@ -496,8 +496,11 @@ class FFBPNetwork:
                     outputs = self.network.output_nodes
                     sample_output = []
 
+                    # Set Inputs
                     for i, feature in enumerate(features):
                         inputs[i].set_input(features[i])
+
+                    # Set Expected Values
                     for i, label in enumerate(labels):
                         outputs[i].set_expected(label)
                         error = outputs[i].value - label
