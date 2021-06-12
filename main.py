@@ -479,11 +479,8 @@ class FFBPNetwork:
         :return:
         """
 
-        # Prime the data
-        data_set.prime_data(data_set.Set.TRAIN, order=order)
-
         # Check if training set is empty
-        if data_set.pool_is_empty(data_set):
+        if data_set.number_of_samples(data_set.Set.TRAIN) == 0:
             raise self.EmptySetException
         else:
             for epoch in range(epochs):
@@ -502,10 +499,10 @@ class FFBPNetwork:
                     for i, feature in enumerate(features):
                         inputs[i].set_input(features[i])
                     for i, label in enumerate(labels):
-                        outputs[i].set_expected(labels[i])
-                        error = outputs[i].delta
+                        outputs[i].set_expected(label)
+                        error = outputs[i].value - label
                         output_node_errors.append(error)
-                        sample_output.append(error)
+                        sample_output.append(outputs[i].value)
 
                     if verbosity > 1:
                         if epoch % 1000 == 0:
@@ -604,6 +601,7 @@ def run_iris():
               [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ],
               [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ],
               [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ]]
+
     data = NNData(Iris_X, Iris_Y, .7)
     network.train(data, 10001, order=NNData.Order.RANDOM)
 
