@@ -449,25 +449,10 @@ class FFBPNetwork:
         :return:
         """
 
-        # Default to position right after head node
-        if position == 0:
-            self.network.reset_to_head()
-            self.network.add_layer(num_nodes=num_nodes)
-
-        # Add node in after specified position
-        if position > 0:
-            # Reset to head node
-            self.network.reset_to_head()
-
-            # Move forward i positions
-            for i in range(position-1):
-                self.network.move_forward()
-
-            # Add hidden layer
-            self.network.add_layer(num_nodes=num_nodes)
-
-            # Reset to head
-            self.network.reset_to_head()
+        self.network.reset_to_head()
+        for _ in range(position):
+            self.network.move_forward()
+        self.network.add_layer(num_nodes)
 
     def train(self, data_set: NNData, epochs=3001, verbosity=2, order=NNData.Order.RANDOM):
         """
@@ -526,7 +511,56 @@ class FFBPNetwork:
                 epoch_rmse = 0
 
     def test(self, data_set: NNData, order=NNData.Order.SEQUENTIAL):
-        pass
+        """
+                Train the Neural Network on our training dataset.
+                :param data_set:
+                :param epochs:
+                :param verbosity:
+                :param order:
+                :return:
+                """
+
+        # Check if training set is empty
+        if data_set.number_of_samples(data_set.Set.TEST) == 0:
+            raise self.EmptySetException
+        else:
+            data_set.prime_data(data_set.Set.TEST, order=order)
+            output_node_errors = []
+            while not data_set.pool_is_empty(data_set):
+                feature_label_pair = data_set.get_one_item(
+                    data_set.Set.TEST)
+                features = feature_label_pair[0]
+                labels = feature_label_pair[1]
+
+                # Get list of Input/Output Neurodes
+                inputs = self.network.input_nodes
+                outputs = self.network.output_nodes
+                sample_output = []
+
+                # Set Inputs
+                for i, feature in enumerate(features):
+                    inputs[i].set_input(features[i])
+
+                # Set Expected Values
+                for i, label in enumerate(labels):
+                    outputs[i].set_expected(label)
+                    error = outputs[i].value - label
+                    output_node_errors.append(error)
+                    sample_output.append(outputs[i].value)
+
+                print(
+                    f"Sample {features} Expected {labels} "
+                    f"Produced {sample_output}")
+
+            squared_errors = [output_error ** 2 for output_error in
+                              output_node_errors]
+            sum_squared_errors = sum(squared_errors)
+            mean_sum_squared_errors = sum_squared_errors / len(
+                output_node_errors)
+            epoch_rmse = np.sqrt(mean_sum_squared_errors)
+
+            # Report epoch RMSE
+            print(f"RMSE = {epoch_rmse}")
 
 
 def load_xor():
@@ -607,8 +641,11 @@ def run_iris():
               [0, 0, 1, ], [0, 0, 1, ], [0, 0, 1, ]]
 
     data = NNData(Iris_X, Iris_Y, .7)
-    network.train(data, 10001, order=NNData.Order.RANDOM)
+    network.train(data, 2001, order=NNData.Order.RANDOM)
+    network.test(data)
 
 
 if __name__ == '__main__':
     run_iris()
+
+
