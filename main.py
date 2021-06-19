@@ -552,8 +552,6 @@ def load_xor():
     features = [[0, 0], [1, 0], [0, 1], [1, 1]]
     labels = [[0], [1], [1], [0]]
 
-    #[1,0],[1]
-
     test_xor_object = NNData(features=features,
                              labels=labels,
                              train_factor=1)
