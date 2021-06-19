@@ -540,7 +540,6 @@ class FFBPNetwork:
 
         print("Final Test RMSE = ", math.sqrt(
             sum_error / data_set.number_of_samples(NNData.Set.TEST)))
-        return produced_outputs
 
 
 def load_xor():
